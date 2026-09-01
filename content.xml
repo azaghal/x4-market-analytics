@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<content id="market-analytics"
+         name="Market Analytics"
+         author="azaghal"
+         version="800"
+         date="2026-09-01"
+         save="0"
+         enabled="1">
+  <text language="44"
+        name="Market Analytics"
+        description="Detailed ware pricing and availability analysis with filter support."
+        />
+  <dependency id="kuerteeUIExtensionsAndHUD" optional="true" name="kuertee UI Extensions and HUD"/>
+</content>

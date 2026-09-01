@@ -1,0 +1,6 @@
+# Ignore IDE and backup files.
+*~
+.#*
+
+# Ignore project temporary directory.
+tmp/
