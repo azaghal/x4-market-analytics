@@ -70,7 +70,7 @@ m.config = {
         {
             id = "markup",
             index = 8,
-            width = Helper.scaleX(C.GetTextWidth("+999%", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
+            width = Helper.scaleX(C.GetTextWidth("+99.99%", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
             text = "Markup",
         },
         {
