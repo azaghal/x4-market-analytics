@@ -147,7 +147,7 @@ function m.createMenu()
     local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset
     local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
 
-    m.updateOffers(offersPageSize)
+    m.updateOffers(offersPageSize, false)
     m.renderOffers(waresTable)
     m.updateControls()
 end
@@ -242,6 +242,23 @@ function m.createControlsTable(frame, offsetX, offsetY)
         }
     )
 
+
+    -- Miscellanous controls
+    -- =====================
+    local row = ftable:addRow(true, { fixed = true })
+
+    row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
+    m.widgets.offersAge = row[12]
+
+    row[13]:createButton():setText("Refresh", { halign = "center" })
+    row[13].handlers.onClick = function()
+        m.updateOffers(m.state.pageSize, true)
+        m.menu.refreshInfoFrame2()
+    end
+
+
+    -- Pagination controls
+    -- ===================
     local row = ftable:addRow(true, { fixed = true })
 
     row[11]:createButton():setText("\27[widget_arrow_left_01] Prev", { halign = "center" })
@@ -409,10 +426,12 @@ end
 -- Offer data is cached in order to avoid expensive computation and lag.
 --
 -- @param pageSize number Number of offers to show per page.
+-- @param forceRefresh bool Force refresh of cached data.
 --
-function m.updateOffers(pageSize)
-    if not m.state.offers then
+function m.updateOffers(pageSize, forceRefresh)
+    if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
+        m.state.offersAge = C.GetCurrentGameTime()
     end
 
     m.state.pageSize = pageSize
@@ -425,6 +444,7 @@ end
 --
 function m.updateControls()
     m.widgets.currentPage.properties.text.text = string.format("%s / %s", m.state.currentPage, m.state.pageCount)
+    m.widgets.offersAge.properties.text = Helper.getPassedTime(m.state.offersAge)
 end
 
 
