@@ -30,59 +30,68 @@ m.config = {
             index = 1,
             width = Helper.scaleX(Helper.standardTextHeight) + Helper.standardTextOffsetx,
             text = "\27[mapst_factionrelation]",
+            sortProperty = "factionText",
         },
         {
             id = "station",
             index = 2,
             width = nil,
             text = "Station",
+            sortProperty = "stationText",
         },
         {
             id = "sector",
             index = 3,
             width = nil,
             text = "Sector",
+            sortProperty = "sectorText",
         },
         {
             id = "distance",
             index = 4,
             width = Helper.scaleX(C.GetTextWidth("999j", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
             text = "Distance",
+            sortProperty = "distance",
         },
         {
             id = "ware",
             index = 5,
             width = nil,
             text = "Ware",
+            sortProperty = "wareText",
         },
         {
             id = "type",
             index = 6,
             width = Helper.scaleX(C.GetTextWidth("Buy / Sell", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
             text = "Type",
+            sortProperty = "offerTypeText",
         },
         {
             id = "price",
             index = 7,
             width = Helper.scaleX(C.GetTextWidth("99999.99 Cr", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
             text = "Price",
+            sortProperty = "price",
         },
         {
             id = "markup",
             index = 8,
             width = Helper.scaleX(C.GetTextWidth("+99.99%", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
             text = "Markup",
+            sortProperty = "markup",
         },
         {
             id = "amount",
             index = 9,
             width = Helper.scaleX(C.GetTextWidth("999999", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
             text = "Amount",
+            sortProperty = "amount",
         },
     },
 
     -- Properties to use when sorting offers, in exact specified order.
-    sortPropertyOrder = {
+    defaultSortPropertyOrder = {
         "factionText",
         "stationText",
         "sectorText",
@@ -345,7 +354,15 @@ function m.createWaresTable(frame, offsetX, offsetY)
 
     local row = ftable:addRow(true, { fixed = true, bgColor = Color["row_title_background"]})
     for index, column in ipairs(m.config.wareColumns) do
-        row[index]:createText(column.text)
+        local button = row[index]:createButton()
+        button:setText(column.text)
+        button:setText2(m.state.sortBy == column.sortProperty and " \27[widget_arrow_down_01]" or "", { halign = "right" })
+        button.handlers.onClick = function()
+            m.state.sortBy = column.sortProperty
+            local sortPropertyOrder = m.generateSortPropertyOrder(m.state.sortBy)
+            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortPropertyOrder) end)
+            m.menu.refreshInfoFrame2()
+        end
     end
 
     return ftable
@@ -447,7 +464,8 @@ function m.updateOffers(pageSize, forceRefresh)
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
-        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, m.state.sortPropertyOrder) end)
+        local sortPropertyOrder = m.generateSortPropertyOrder(m.state.sortBy)
+        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortPropertyOrder) end)
     end
 
     m.state.pageSize = pageSize
@@ -486,6 +504,27 @@ function m.compareOffers(a, b, properties, propertyIndex)
     else
         return a[property] < b[property]
     end
+end
+
+
+--- Generates a new sort property order that starts with the passed-in primary property.
+--
+-- Remaining (non-primary) properties are included in the sorting order in the same order as the default sorting order.
+--
+-- @param primaryProperty string Primary property to use for sorting.
+--
+-- @return list{string} List of properties to use for sorting offer entries (starting from most significant).
+--
+function m.generateSortPropertyOrder(primaryProperty)
+    local sortPropertyOrder = { primaryProperty }
+
+    for _, property in ipairs(m.config.defaultSortPropertyOrder) do
+        if property ~= primaryProperty then
+            table.insert(sortPropertyOrder, property)
+        end
+    end
+
+    return sortPropertyOrder
 end
 
 
