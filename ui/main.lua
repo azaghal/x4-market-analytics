@@ -90,17 +90,17 @@ m.config = {
         },
     },
 
-    -- Properties to use when sorting offers, in exact specified order.
-    defaultSortPropertyOrder = {
-        "factionText",
-        "stationText",
-        "sectorText",
-        "distance",
-        "wareText",
-        "offerTypeText",
-        "price",
-        "markup",
-        "amount",
+    -- Sorting criteria to use when sorting offers, in order of preference. Pairs of property names and whether the sorting should be in ascending order.
+    defaultSortCriteria = {
+        { "factionText", true },
+        { "stationText", true },
+        { "sectorText", true },
+        { "distance", true },
+        { "wareText", true },
+        { "offerTypeText", true },
+        { "price", true },
+        { "markup", true },
+        { "amount", true },
     },
 }
 
@@ -113,7 +113,7 @@ function m.init()
 
     m.state = {
         currentPage = 1,
-        sortBy = "factionText",
+        sortBy = {"factionText", true},
     }
 
     -- Keep track of widgets that might require updates after their creation.
@@ -356,11 +356,17 @@ function m.createWaresTable(frame, offsetX, offsetY)
     for index, column in ipairs(m.config.wareColumns) do
         local button = row[index]:createButton()
         button:setText(column.text)
-        button:setText2(m.state.sortBy == column.sortProperty and " \27[widget_arrow_down_01]" or "", { halign = "right" })
+        if column.sortProperty == m.state.sortBy[1] then
+            button:setText2( m.state.sortBy[2] and "\27[widget_arrow_down_01]" or "\27[widget_arrow_up_01]", { halign = "right" })
+        end
         button.handlers.onClick = function()
-            m.state.sortBy = column.sortProperty
-            local sortPropertyOrder = m.generateSortPropertyOrder(m.state.sortBy)
-            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortPropertyOrder) end)
+            if column.sortProperty == m.state.sortBy[1] then
+                m.state.sortBy = { column.sortProperty, not m.state.sortBy[2] }
+            else
+                m.state.sortBy = { column.sortProperty, true }
+            end
+            local sortCriteria = m.generateSortCriteria(m.state.sortBy)
+            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortCriteria) end)
             m.menu.refreshInfoFrame2()
         end
     end
@@ -464,8 +470,8 @@ function m.updateOffers(pageSize, forceRefresh)
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
-        local sortPropertyOrder = m.generateSortPropertyOrder(m.state.sortBy)
-        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortPropertyOrder) end)
+        local sortCriteria = m.generateSortCriteria(m.state.sortBy)
+        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortCriteria) end)
     end
 
     m.state.pageSize = pageSize
@@ -482,49 +488,51 @@ function m.updateControls()
 end
 
 
---- Comparator for sorting offers.
+--- Comparator for sorting trade offers.
 --
 -- @param a table Offer entry.
 -- @param b table Offer entry.
--- @param properties list List of properties to sort by (in specified order). Properties are used in sequence until a definitive order can be established.
--- @param propertyIndex number Index of property to use for current sotring operation.
+-- @param sortCriteria list List of sorting criteria to use for sorting the trade offers.
+-- @param sortCriterionIndex number Index of sort criteria to use for current sorting operation.
 --
 -- @return bool Whether the first offer should be placed before the second offer.
 --
-function m.compareOffers(a, b, properties, propertyIndex)
-    propertyIndex = propertyIndex or 1
-    local property = properties[propertyIndex]
+function m.compareOffers(a, b, sortCriteria, sortCriterionIndex)
+    sortCriterionIndex = sortCriterionIndex or 1
+    local sortCriterion = sortCriteria[sortCriterionIndex]
 
-    if not property then
+    if not sortCriterion then
         return false
     end
 
+    local property, ascending = sortCriterion[1], sortCriterion[2]
+
     if a[property] == b[property] then
-        return m.compareOffers(a, b, properties, propertyIndex + 1)
-    else
+        return m.compareOffers(a, b, sortCriteria, sortCriterionIndex + 1)
+    elseif ascending then
         return a[property] < b[property]
+    else
+        return a[property] > b[property]
     end
 end
 
 
---- Generates a new sort property order that starts with the passed-in primary property.
+--- Generates sort criteria from default definition by prioritising the desired criterion.
 --
--- Remaining (non-primary) properties are included in the sorting order in the same order as the default sorting order.
+-- @param primaryCriterion {string, bool}  Primary criterion (property, ascending pair) to use for sorting.
 --
--- @param primaryProperty string Primary property to use for sorting.
+-- @return {string} Sort criteria to use for sorting trade offer entries.
 --
--- @return list{string} List of properties to use for sorting offer entries (starting from most significant).
---
-function m.generateSortPropertyOrder(primaryProperty)
-    local sortPropertyOrder = { primaryProperty }
+function m.generateSortCriteria(primaryCriterion)
+    local sortCriteria = { { primaryCriterion[1], primaryCriterion[2] } }
 
-    for _, property in ipairs(m.config.defaultSortPropertyOrder) do
-        if property ~= primaryProperty then
-            table.insert(sortPropertyOrder, property)
+    for _, criterion in ipairs(m.config.defaultSortCriteria) do
+        if criterion[1] ~= primaryCriterion[1] then
+            table.insert(sortCriteria, { criterion[1], criterion[2] })
         end
     end
 
-    return sortPropertyOrder
+    return sortCriteria
 end
 
 
