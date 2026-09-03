@@ -89,7 +89,12 @@ function m.init()
     m.menu = Helper.getMenu("MapMenu")
     m.menuConfig = m.menu.uix_getConfig()
 
-    m.state = {}
+    m.state = {
+        currentPage = 1,
+    }
+
+    -- Keep track of widgets that might require updates after their creation.
+    m.widgets = {}
 
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
     m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
@@ -128,15 +133,23 @@ function m.createMenu()
 
     m.menu.infoFrame2 = m.createFrame()
 
-    local titleTable = m.createHeaderTable(m.menu.infoFrame2, 0, 0)
-    local waresTable = m.createWaresTable(m.menu.infoFrame2, 0, titleTable:getVisibleHeight() + Helper.borderSize * 2)
+    local verticalOffset = 0
 
-    -- @TODO: Add proper pagination controls
-    local availableHeight = m.menu.infoFrame2.properties.height - Helper.borderSize * 2 - titleTable:getVisibleHeight() - waresTable:getVisibleHeight()
-    local pageSize = math.floor(availableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
-    local page = 1
+    local titleTable = m.createHeaderTable(m.menu.infoFrame2, 0, verticalOffset)
+    verticalOffset = verticalOffset + titleTable:getVisibleHeight() + Helper.borderSize * 2
 
-    m.renderData(waresTable, pageSize, page)
+    local controlsTable = m.createControlsTable(m.menu.infoFrame2, 0, verticalOffset)
+    verticalOffset = verticalOffset + controlsTable:getVisibleHeight() + Helper.borderSize * 2
+
+    local waresTable = m.createWaresTable(m.menu.infoFrame2, 0, verticalOffset)
+    verticalOffset = verticalOffset + waresTable:getVisibleHeight() + Helper.borderSize * 2
+
+    local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset
+    local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
+
+    m.updateOffers(offersPageSize)
+    m.renderOffers(waresTable)
+    m.updateControls()
 end
 
 
@@ -206,6 +219,71 @@ function m.createHeaderTable(frame, offsetX, offsetY)
 end
 
 
+--- Creates table with various menu controls (paginatioin, filters, etc).
+--
+-- @param frame table Frame descriptor where the table should be created.
+-- @param offsetX number Horisontal offset for created table relative to frame borders.
+-- @param offsetY number Vertical offset for created table relative to frame borders.
+--
+-- @return table Table descriptor.
+--
+function m.createControlsTable(frame, offsetX, offsetY)
+    local ftable = frame:addTable(
+        13,
+        {
+            tabOrder = 1,
+            highlightMode = "off",
+            backgroundID = "solid",
+            backgroundColor = Color["frame_background_semitransparent"],
+            reserveScrollBar = false,
+            x = offsetX,
+            y = offsetY,
+
+        }
+    )
+
+    local row = ftable:addRow(true, { fixed = true })
+
+    row[11]:createButton():setText("\27[widget_arrow_left_01] Prev", { halign = "center" })
+    row[11].handlers.onClick = function()
+        m.state.currentPage = m.state.currentPage > 1 and m.state.currentPage - 1 or m.state.pageCount
+        m.menu.refreshInfoFrame2()
+    end
+    m.widgets.previousPage = row[11]
+
+    row[12]:createEditBox({ description = "description" }):setText("1 / 1", { halign = "center" })
+    row[12].handlers.onEditBoxActivated = function(_)
+        -- Prevent menu refresh while editing the text.
+        m.menu.noupdate = true
+
+        -- Show just the current page when starting the edit.
+        C.SetEditBoxText(m.widgets.currentPage.id, tostring(m.state.currentPage))
+    end
+    row[12].handlers.onEditBoxDeactivated = function(_, text, textChanged)
+        -- Allow menu refresh at this point.
+        m.menu.noupdate = nil
+
+        local page = tonumber(text)
+        if page and page ~= m.state.currentPage then
+            m.state.currentPage = page
+            m.menu.refreshInfoFrame2()
+        else
+            C.SetEditBoxText(m.widgets.currentPage.id, string.format("%s / %s", m.state.currentPage, m.state.pageCount))
+        end
+    end
+    m.widgets.currentPage = row[12]
+
+    row[13]:createButton():setText("Next \27[widget_arrow_right_01]", { halign = "center" })
+    row[13].handlers.onClick = function()
+        m.state.currentPage = m.state.currentPage < m.state.pageCount and m.state.currentPage + 1 or 1
+        m.menu.refreshInfoFrame2()
+    end
+    m.widgets.nextPage = row[13]
+
+    return ftable
+end
+
+
 --- Creates listing table for the wares.
 --
 -- @param frame table Frame descriptor where the tabkle should be created.
@@ -215,7 +293,6 @@ end
 -- @return table Table descriptor.
 --
 function m.createWaresTable(frame, offsetX, offsetY)
-
     local ftable = frame:addTable(
         #m.config.wareColumns,
         {
@@ -244,17 +321,16 @@ function m.createWaresTable(frame, offsetX, offsetY)
 end
 
 
---- Render the ware data in the ware listing table.
+--- Render offers in the ware listing table.
 --
 -- @param ftable table Table descriptor.
 --
-function m.renderData(ftable, pageSize, page)
-    local offers = m.getTradeOffers()
+function m.renderOffers(ftable)
+    local from = 1 + m.state.pageSize * (m.state.currentPage - 1)
+    local to = math.min(#m.state.offers, m.state.pageSize * m.state.currentPage)
 
-    local range = {1 + pageSize * (page - 1), pageSize + pageSize * (page - 1)}
-
-    for index = range[1], range[2] do
-        local offer = offers[index]
+    for index = from, to do
+        local offer = m.state.offers[index]
         local row = ftable:addRow(true, { fixed = true })
         row[1]:createText(offer.factionText)
         row[2]:createText(offer.stationText)
@@ -266,13 +342,10 @@ function m.renderData(ftable, pageSize, page)
         row[8]:createText(offer.markupText, { halign = "right" })
         row[9]:createText(offer.amountText, { halign = "right" })
     end
-
 end
 
 
---- Returns list of all active trade offers known to player.
---
--- Data is cached for performance reason and may become stale.
+--- Returns list of all active trade offers known to player, including various metadata or text rendering.
 --
 -- @return [table{faction = component<faction>, factionText = string, station = component<station>, stationText = string,
 --     sector = component<sector>, sectorText = string, distance = number, distanceText = string, ware = component<ware>, wareText = string,
@@ -280,12 +353,7 @@ end
 --     amount = number, amountText = string}] List of active trade offers.
 --
 function m.getTradeOffers()
-    if m.state.offers then
-        return m.state.offers
-    end
-
-    m.state.offers = {}
-
+    local offers = {}
     local currencySuffix = " " .. ReadText(1001, 101)
 
     local clusters = GetClusters(true) or {}
@@ -304,7 +372,7 @@ function m.getTradeOffers()
                     local averagePrice = GetWareData(trade.ware, "avgprice")
                     local markup = 1 - trade.price/averagePrice
                     table.insert(
-                        m.state.offers,
+                        offers,
                         {
                             faction = stationOwner,
                             factionText = string.format("\27[%s]", stationOwnerIcon),
@@ -332,7 +400,31 @@ function m.getTradeOffers()
         end
     end
 
-    return m.state.offers
+    return offers
+end
+
+
+--- Updates menu offer data.
+--
+-- Offer data is cached in order to avoid expensive computation and lag.
+--
+-- @param pageSize number Number of offers to show per page.
+--
+function m.updateOffers(pageSize)
+    if not m.state.offers then
+        m.state.offers = m.getTradeOffers()
+    end
+
+    m.state.pageSize = pageSize
+    m.state.pageCount = math.ceil(#m.state.offers / m.state.pageSize)
+    m.state.currentPage = math.min(m.state.currentPage, m.state.pageCount)
+end
+
+
+--- Updates menu controls (text etc) based on current state.
+--
+function m.updateControls()
+    m.widgets.currentPage.properties.text.text = string.format("%s / %s", m.state.currentPage, m.state.pageCount)
 end
 
 
