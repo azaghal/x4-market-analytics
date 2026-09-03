@@ -80,6 +80,19 @@ m.config = {
             text = "Amount",
         },
     },
+
+    -- Properties to use when sorting offers, in exact specified order.
+    sortPropertyOrder = {
+        "factionText",
+        "stationText",
+        "sectorText",
+        "distance",
+        "wareText",
+        "offerTypeText",
+        "price",
+        "markup",
+        "amount",
+    },
 }
 
 
@@ -91,6 +104,7 @@ function m.init()
 
     m.state = {
         currentPage = 1,
+        sortBy = "factionText",
     }
 
     -- Keep track of widgets that might require updates after their creation.
@@ -392,6 +406,7 @@ function m.getTradeOffers()
                         offers,
                         {
                             faction = stationOwner,
+                            -- @TODO: Consider using dedicated factionIcon property in order to be able to sort by actual faction name.
                             factionText = string.format("\27[%s]", stationOwnerIcon),
                             station = trade.station,
                             stationText = trade.stationname,
@@ -432,6 +447,7 @@ function m.updateOffers(pageSize, forceRefresh)
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
+        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, m.state.sortPropertyOrder) end)
     end
 
     m.state.pageSize = pageSize
@@ -445,6 +461,31 @@ end
 function m.updateControls()
     m.widgets.currentPage.properties.text.text = string.format("%s / %s", m.state.currentPage, m.state.pageCount)
     m.widgets.offersAge.properties.text = Helper.getPassedTime(m.state.offersAge)
+end
+
+
+--- Comparator for sorting offers.
+--
+-- @param a table Offer entry.
+-- @param b table Offer entry.
+-- @param properties list List of properties to sort by (in specified order). Properties are used in sequence until a definitive order can be established.
+-- @param propertyIndex number Index of property to use for current sotring operation.
+--
+-- @return bool Whether the first offer should be placed before the second offer.
+--
+function m.compareOffers(a, b, properties, propertyIndex)
+    propertyIndex = propertyIndex or 1
+    local property = properties[propertyIndex]
+
+    if not property then
+        return false
+    end
+
+    if a[property] == b[property] then
+        return m.compareOffers(a, b, properties, propertyIndex + 1)
+    else
+        return a[property] < b[property]
+    end
 end
 
 
