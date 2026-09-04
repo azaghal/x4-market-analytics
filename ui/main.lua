@@ -28,65 +28,74 @@ m.config = {
         {
             id = "faction",
             index = 1,
-            width = Helper.scaleX(Helper.standardTextHeight) + Helper.standardTextOffsetx,
-            text = "\27[mapst_factionrelation]",
+            title = "\27[mapst_factionrelation]",
+            dataSample = "\27[faction_argon]",
             sortProperty = "factionText",
+            fixedWidth = true,
         },
         {
             id = "station",
             index = 2,
-            width = nil,
-            text = "Station",
+            title = "Station",
+            dataSample = "HAT Argon Trading Station",
             sortProperty = "stationText",
+            fixedWidth = false,
         },
         {
             id = "sector",
             index = 3,
-            width = nil,
-            text = "Sector",
+            title = "Sector",
+            dataSample = "Argon Prime",
             sortProperty = "sectorText",
+            fixedWidth = false,
         },
         {
             id = "distance",
             index = 4,
-            width = Helper.scaleX(C.GetTextWidth("999j", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
-            text = "Distance",
+            title = "Distance",
+            dataSample = "999j",
             sortProperty = "distance",
+            fixedWidth = true,
         },
         {
             id = "ware",
             index = 5,
-            width = nil,
-            text = "Ware",
+            title = "Ware",
+            dataSample = "Advanced Electronics",
             sortProperty = "wareText",
+            fixedWidth = false,
         },
         {
             id = "type",
             index = 6,
-            width = Helper.scaleX(C.GetTextWidth("Buy / Sell", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
-            text = "Type",
+            title = "Type",
+            dataSample = "Sell",
             sortProperty = "offerTypeText",
+            fixedWidth = true,
         },
         {
             id = "price",
             index = 7,
-            width = Helper.scaleX(C.GetTextWidth("99999.99 Cr", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
-            text = "Price",
+            title = "Price",
+            dataSample = "99999.99 Cr",
             sortProperty = "price",
+            fixedWidth = true,
         },
         {
             id = "markup",
             index = 8,
-            width = Helper.scaleX(C.GetTextWidth("+99.99%", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
-            text = "Markup",
+            title = "Markup",
+            dataSample = "+99.99%",
             sortProperty = "markup",
+            fixedWidth = true,
         },
         {
             id = "amount",
             index = 9,
-            width = Helper.scaleX(C.GetTextWidth("999999", Helper.standardFont, Helper.standardFontSize)) + Helper.standardTextOffsetx,
-            text = "Amount",
+            title = "Amount",
+            dataSample = "999999",
             sortProperty = "amount",
+            fixedWidth = true,
         },
     },
 
@@ -118,6 +127,10 @@ function m.init()
 
     -- Keep track of widgets that might require updates after their creation.
     m.widgets = {}
+
+    for _, column in ipairs(m.config.wareColumns) do
+        column.width = column.fixedWidth and m.calculateRequiredColumnTextWidth(column.title, column.dataSample) or nil
+    end
 
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
     m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
@@ -355,7 +368,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
     local row = ftable:addRow(true, { fixed = true, bgColor = Color["row_title_background"]})
     for index, column in ipairs(m.config.wareColumns) do
         local button = row[index]:createButton()
-        button:setText(column.text)
+        button:setText(column.title)
         if column.sortProperty == m.state.sortBy[1] then
             button:setText2( m.state.sortBy[2] and "\27[widget_arrow_down_01]" or "\27[widget_arrow_up_01]", { halign = "right" })
         end
@@ -533,6 +546,26 @@ function m.generateSortCriteria(primaryCriterion)
     end
 
     return sortCriteria
+end
+
+
+--- Calculates required column width to fit either title or data, taking into the account sorting indiactor as well.
+--
+-- @param title string Column title.
+-- @param data string Sample data of maximum length that can end up in the column.
+--
+-- @return number Column width that can accomodate title with sorting indicator or data.
+--
+function m.calculateRequiredColumnTextWidth(title, data)
+    local sortIndicator = "\27[widget_arrow_down_01]"
+
+    local titleWidth = Helper.scaleX(C.GetTextWidth(title, Helper.standardFont, Helper.standardFontSize))
+    local dataWidth = Helper.scaleX(C.GetTextWidth(data, Helper.standardFont, Helper.standardFontSize))
+    local sortIndicatorWidth = Helper.scaleX(C.GetTextWidth(sortIndicator, Helper.standardFont, Helper.standardFontSize))
+
+    local maximumWidth = math.max(titleWidth + sortIndicatorWidth, dataWidth) + Helper.standardTextOffsetx
+
+    return maximumWidth
 end
 
 
