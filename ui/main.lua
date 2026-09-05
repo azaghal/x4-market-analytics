@@ -69,7 +69,7 @@ m.config = {
             id = "type",
             index = 6,
             title = "Type",
-            dataSample = "Sell",
+            dataSample = "Sells",
             sortProperty = "offerTypeText",
             fixedWidth = true,
         },
@@ -453,7 +453,7 @@ function m.getTradeOffers()
                             ware = trade.ware,
                             wareText = trade.name,
                             offerType = trade.isbuyoffer and trade.isselloffer and 3 or trade.isbuyoffer and 2 or trade.isselloffer and 1 or nil,
-                            offerTypeText = trade.isbuyoffer and trade.isselloffer and "Buy/Sell" or trade.isbuyoffer and "Buy" or trade.isselloffer and "Sell" or "",
+                            offerTypeText = trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None",
                             price = trade.price,
                             -- Arguments: price, includeFraction, includeComma, ?, ?
                             priceText = ConvertMoneyString(trade.price, true, true, 0, true) .. currencySuffix,
