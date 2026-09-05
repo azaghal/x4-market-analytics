@@ -20,6 +20,12 @@ end
 
 local m = {}
 
+-- Tracks original menu functions.
+m.original = {}
+-- Overrides for original menu function.
+m.override = {}
+-- Filter functions for trade offers.
+m.filter = {}
 
 --- Static configuration for the menu.
 m.config = {
@@ -128,6 +134,7 @@ function m.init()
     m.state = {
         currentPage = 1,
         sortParameters = { { property = "factionText", ascending = true } },
+        filters = {},
     }
 
     -- @TODO: Candidate for deduplicatioin or simplification
@@ -152,6 +159,14 @@ function m.init()
 
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
     m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
+
+    -- Store references to original functions.
+    m.original.setSectorFilter = m.menu.setSectorFilter
+    m.original.filterTradeWares = m.menu.filterTradeWares
+
+    -- Override original functioins with custom implementation.
+    m.menu.setSectorFilter = m.override.setSectorFilter
+    m.menu.filterTradeWares = m.override.filterTradeWares
 end
 
 
@@ -201,7 +216,7 @@ function m.createMenu()
     local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset
     local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
 
-    m.updateOffers(offersPageSize, false)
+    m.updateOffers(offersPageSize, false, false, false)
     m.renderOffers(waresTable)
     m.updateControls()
 end
@@ -306,7 +321,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
 
     row[13]:createButton():setText("Refresh", { halign = "center" })
     row[13].handlers.onClick = function()
-        m.updateOffers(m.state.pageSize, true)
+        m.updateOffers(m.state.pageSize, true, false, false)
         m.menu.refreshInfoFrame2()
     end
 
@@ -408,8 +423,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 m.state.sortParametersBy[parameter.property] = parameter
             end
 
-            local sortParameters = m.generateFullSortParameters(m.state.sortParameters)
-            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
+            m.updateOffers(m.state.pageSize, false, false, true)
             m.menu.refreshInfoFrame2()
         end
 
@@ -447,8 +461,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 m.state.sortParametersBy[parameter.property] = parameter
             end
 
-            local sortParameters = m.generateFullSortParameters(m.state.sortParameters)
-            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
+            m.updateOffers(m.state.pageSize, false, false, true)
             m.menu.refreshInfoFrame2()
         end
     end
@@ -462,11 +475,15 @@ end
 -- @param ftable { * = * } Table descriptor.
 --
 function m.renderOffers(ftable)
+    if #m.state.filteredOffers == 0 then
+        return
+    end
+
     local from = 1 + m.state.pageSize * (m.state.currentPage - 1)
-    local to = math.min(#m.state.offers, m.state.pageSize * m.state.currentPage)
+    local to = math.min(#m.state.filteredOffers, m.state.pageSize * m.state.currentPage)
 
     for index = from, to do
-        local offer = m.state.offers[index]
+        local offer = m.state.filteredOffers[index]
         local row = ftable:addRow(true, { fixed = true })
         row[1]:createText(offer.factionText)
         row[2]:createText(offer.stationText)
@@ -547,17 +564,41 @@ end
 --
 -- @param pageSize number Number of offers to show per page.
 -- @param forceRefresh bool Force refresh of cached data.
+-- @param forceFilter bool Force filtering of cached data.
+-- @param forceSort bool Force sorting of cached data.
 --
-function m.updateOffers(pageSize, forceRefresh)
+function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
+        forceFilter = true
+        forceSort = true
+    end
+
+    if forceFilter then
+        m.state.filteredOffers = {}
+        for _, offer in ipairs(m.state.offers) do
+            local passed = true
+            for _, filterFunction in pairs(m.filter) do
+                if not filterFunction(offer) then
+                    passed = false
+                    break
+                end
+            end
+            if passed then
+                table.insert(m.state.filteredOffers, offer)
+            end
+        end
+        forceSort = true
+    end
+
+    if forceSort then
         local sortParameters = m.generateFullSortParameters(m.state.sortParameters)
-        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
+        table.sort(m.state.filteredOffers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
     end
 
     m.state.pageSize = pageSize
-    m.state.pageCount = math.ceil(#m.state.offers / m.state.pageSize)
+    m.state.pageCount = math.ceil(#m.state.filteredOffers / m.state.pageSize)
     m.state.currentPage = math.min(m.state.currentPage, m.state.pageCount)
 end
 
@@ -637,6 +678,82 @@ function m.calculateRequiredColumnTextWidth(title, data)
     local maximumWidth = math.max(titleWidth + sortIndicatorWidth, dataWidth) + Helper.standardTextOffsetx
 
     return maximumWidth
+end
+
+
+-- Trade offer filters
+-- ===================
+
+
+--- Filters offer by sectors selected in the map menu.
+--
+-- @param offer { * = * } Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.mapSearchSectors(offer)
+    local sectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"] or {}
+
+    if #sectors == 0 then
+        return true
+    end
+
+    for _, sector in ipairs(sectors) do
+        if tostring(offer.sector) == sector then
+            return true
+        end
+    end
+
+    return false
+end
+
+
+--- Filters offer by wares selected in the map menu.
+--
+-- @param offer { * = * } Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.mapSearchWares(offer)
+    local setting, wares = m.menu.getTradeWareFilter(true)
+
+    if #wares == 0 then
+        return true
+    end
+
+    for _, ware in ipairs(wares) do
+        if offer.ware == ware then
+            return true
+        end
+    end
+
+    return false
+end
+
+
+-- Override functioins
+-- ===================
+
+
+--- Update offers and redraw the market analytics when player changes the map menu sector filters.
+--
+function m.override.setSectorFilter(...)
+    m.original.setSectorFilter(...)
+    if m.menu.searchTableMode == "marketanalytics" then
+        m.updateOffers(m.state.pageSize, false, true, true)
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Update offers and redraw the market analytics when player changes the map menu trade ware filters.
+--
+function m.override.filterTradeWares(...)
+    m.original.filterTradeWares(...)
+    if m.menu.searchTableMode == "marketanalytics" then
+        m.updateOffers(m.state.pageSize, false, true, true)
+        m.menu.refreshInfoFrame2()
+    end
 end
 
 
