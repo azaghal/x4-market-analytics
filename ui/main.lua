@@ -572,31 +572,26 @@ end
 
 --- Comparator for sorting trade offers.
 --
--- Trade offers are sorted using the passed-in parameters. Sorting parameters are processed in provided order until a first non-equal match between the two
--- offers can be established.
+-- Sort parameters are attempted in the given order until a non-equality can be established.
 --
 -- @param a { * = * } Offer entry.
 -- @param b { * = * } Offer entry.
--- @param parameters {{ property = string, ascending = bool}} List of parameters to use for comparing the trade offers.
--- @param parameterIndex number Index of parameter in the parameters list to use for current comparison operation.
+-- @param sortParameters {{ property = string, ascending = bool}} List of parameters to use for comparing the trade offers.
 --
 -- @return bool Whether the first offer should be placed before the second offer.
 --
-function m.compareOffers(a, b, parameters, parameterIndex)
-    parameterIndex = parameterIndex or 1
-    local parameter = parameters[parameterIndex]
-
-    if not parameter then
-        return false
+function m.compareOffers(a, b, sortParameters)
+    for _, parameter in ipairs(sortParameters) do
+        if a[parameter.property] ~= b[parameter.property] then
+            if parameter.ascending then
+                return a[parameter.property] < b[parameter.property]
+            else
+                return a[parameter.property] > b[parameter.property]
+            end
+        end
     end
 
-    if a[parameter.property] == b[parameter.property] then
-        return m.compareOffers(a, b, parameters, parameterIndex + 1)
-    elseif parameter.ascending then
-        return a[parameter.property] < b[parameter.property]
-    else
-        return a[parameter.property] > b[parameter.property]
-    end
+    return false
 end
 
 
