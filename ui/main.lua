@@ -99,18 +99,21 @@ m.config = {
         },
     },
 
-    -- Sorting criteria to use when sorting offers, in order of preference. Pairs of property names and whether the sorting should be in ascending order.
-    defaultSortCriteria = {
-        { "factionText", true },
-        { "stationText", true },
-        { "sectorText", true },
-        { "distance", true },
-        { "wareText", true },
-        { "offerTypeText", true },
-        { "price", true },
-        { "markup", true },
-        { "amount", true },
+    -- Default parameters for sorting trade offers.
+    defaultSortParameters = {
+        { property = "factionText", ascending = true },
+        { property = "stationText", ascending = true },
+        { property = "sectorText", ascending = true },
+        { property = "distance", ascending = true },
+        { property = "wareText", ascending = true },
+        { property = "offerTypeText", ascending = true },
+        { property = "price", ascending = true },
+        { property = "markup", ascending = true },
+        { property = "amount", ascending = true },
     },
+
+    -- Column indicators when sorting by player-indicated order.
+    sortOrderIndicators = {"¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"}
 }
 
 
@@ -122,8 +125,21 @@ function m.init()
 
     m.state = {
         currentPage = 1,
-        sortBy = {"factionText", true},
+        sortParameters = { { property = "factionText", ascending = true } },
     }
+
+    -- @TODO: Candidate for deduplicatioin or simplification
+    --     This pattern is used in a couple of different places in the code, and it might be useful to deduplicate it. Another thing that could be considered is
+    --     getting rid of this mapping altogether and just using iteration over m.state.sortParameters if performance hit is minimal.
+    -- Make parameters accessible by referencing the property, thus avoiding having to traverse the list all the time.
+    m.state.sortParametersBy = {}
+    for priority, parameter in ipairs(m.state.sortParameters) do
+        -- Do not show column sorting priority when sorting by a singular player-selected column.
+        if #m.state.sortParameters > 1 then
+            parameter.priority = priority
+        end
+        m.state.sortParametersBy[parameter.property] = parameter
+    end
 
     -- Keep track of widgets that might require updates after their creation.
     m.widgets = {}
@@ -369,17 +385,68 @@ function m.createWaresTable(frame, offsetX, offsetY)
     for index, column in ipairs(m.config.wareColumns) do
         local button = row[index]:createButton()
         button:setText(column.title)
-        if column.sortProperty == m.state.sortBy[1] then
-            button:setText2( m.state.sortBy[2] and "\27[widget_arrow_down_01]" or "\27[widget_arrow_up_01]", { halign = "right" })
+
+        -- Adds sorting indicator cue for the player. Priority is used when player has explicitly selected secondary columns to use for sorting.
+        if m.state.sortParametersBy[column.sortProperty] then
+            local arrow = m.state.sortParametersBy[column.sortProperty].ascending and "\27[widget_arrow_down_01]" or "\27[widget_arrow_up_01]"
+            local priority = m.state.sortParametersBy[column.sortProperty].priority
+            button:setText2(string.format("%s%s", m.config.sortOrderIndicators[priority] or "", arrow), { halign = "right" })
         end
+
+        -- Sort offers by clicked column. Reverse sorting order on subsequent clicks.
         button.handlers.onClick = function()
-            if column.sortProperty == m.state.sortBy[1] then
-                m.state.sortBy = { column.sortProperty, not m.state.sortBy[2] }
+            local parameter = m.state.sortParametersBy[column.sortProperty]
+            if parameter then
+                parameter.ascending = not parameter.ascending
             else
-                m.state.sortBy = { column.sortProperty, true }
+                -- With new column selected for sorting, clear player's existing multi-sort selection.
+                parameter = { property = column.sortProperty, ascending = true }
+                m.state.sortParameters = { parameter }
+                m.state.sortParametersBy = {}
+                m.state.sortParametersBy[parameter.property] = parameter
             end
-            local sortCriteria = m.generateSortCriteria(m.state.sortBy)
-            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortCriteria) end)
+
+            local sortParameters = m.generateFullSortParameters(m.state.sortParameters)
+            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
+            m.menu.refreshInfoFrame2()
+        end
+
+        -- Sort offers by player-indicated column ordering.
+        button.handlers.onRightClick = function()
+            local selected = m.state.sortParametersBy[column.sortProperty]
+
+            -- Custom multi-column sorting is not in effect.
+            if selected and #m.state.sortParameters == 1 then
+                return
+            end
+
+            if selected then
+                local newSortParameters = {}
+                for _, parameter in ipairs(m.state.sortParameters) do
+                    if selected.property ~= parameter.property then
+                        table.insert(newSortParameters, parameter)
+                    end
+                end
+                m.state.sortParameters = newSortParameters
+            else
+                parameter = { property = column.sortProperty, ascending = true }
+                table.insert(m.state.sortParameters, parameter)
+            end
+
+            -- @TODO: Candidate for deduplication or simplification.
+            m.state.sortParametersBy = {}
+            for priority, parameter in ipairs(m.state.sortParameters) do
+                -- Do not show column sorting priority when sorting by a singular player-selected column.
+                if #m.state.sortParameters > 1 then
+                    parameter.priority = priority
+                else
+                    parameter.priority = nil
+                end
+                m.state.sortParametersBy[parameter.property] = parameter
+            end
+
+            local sortParameters = m.generateFullSortParameters(m.state.sortParameters)
+            table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
             m.menu.refreshInfoFrame2()
         end
     end
@@ -483,8 +550,8 @@ function m.updateOffers(pageSize, forceRefresh)
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
-        local sortCriteria = m.generateSortCriteria(m.state.sortBy)
-        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortCriteria) end)
+        local sortParameters = m.generateFullSortParameters(m.state.sortParameters)
+        table.sort(m.state.offers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
     end
 
     m.state.pageSize = pageSize
@@ -503,49 +570,56 @@ end
 
 --- Comparator for sorting trade offers.
 --
+-- Trade offers are sorted using the passed-in parameters. Sorting parameters are processed in provided order until a first non-equal match between the two
+-- offers can be established.
+--
 -- @param a table Offer entry.
 -- @param b table Offer entry.
--- @param sortCriteria list List of sorting criteria to use for sorting the trade offers.
--- @param sortCriterionIndex number Index of sort criteria to use for current sorting operation.
+-- @param parameters {{ property = string, ascending = bool}} List of parameters to use for comparing the trade offers.
+-- @param parameterIndex number Index of parameter in the parameters list to use for current comparison operation.
 --
 -- @return bool Whether the first offer should be placed before the second offer.
 --
-function m.compareOffers(a, b, sortCriteria, sortCriterionIndex)
-    sortCriterionIndex = sortCriterionIndex or 1
-    local sortCriterion = sortCriteria[sortCriterionIndex]
+function m.compareOffers(a, b, parameters, parameterIndex)
+    parameterIndex = parameterIndex or 1
+    local parameter = parameters[parameterIndex]
 
-    if not sortCriterion then
+    if not parameter then
         return false
     end
 
-    local property, ascending = sortCriterion[1], sortCriterion[2]
-
-    if a[property] == b[property] then
-        return m.compareOffers(a, b, sortCriteria, sortCriterionIndex + 1)
-    elseif ascending then
-        return a[property] < b[property]
+    if a[parameter.property] == b[parameter.property] then
+        return m.compareOffers(a, b, parameters, parameterIndex + 1)
+    elseif parameter.ascending then
+        return a[parameter.property] < b[parameter.property]
     else
-        return a[property] > b[property]
+        return a[parameter.property] > b[parameter.property]
     end
 end
 
 
---- Generates sort criteria from default definition by prioritising the desired criterion.
+--- Generates full list of sort parameters, starting with passed-in parameters and continuing with remaining unused default sort parameters.
 --
--- @param primaryCriterion {string, bool}  Primary criterion (property, ascending pair) to use for sorting.
+-- @param parameters {{ property = string, ascending = bool }} List of preferred sort parameters.
 --
--- @return {string} Sort criteria to use for sorting trade offer entries.
+-- @return {{ property = string, ascending = bool }} Full list of sort parameters.
 --
-function m.generateSortCriteria(primaryCriterion)
-    local sortCriteria = { { primaryCriterion[1], primaryCriterion[2] } }
+function m.generateFullSortParameters(parameters)
+    local fullParameters = {}
 
-    for _, criterion in ipairs(m.config.defaultSortCriteria) do
-        if criterion[1] ~= primaryCriterion[1] then
-            table.insert(sortCriteria, { criterion[1], criterion[2] })
+    local seen = {}
+    for _, parameter in ipairs(parameters) do
+        table.insert(fullParameters, { property = parameter.property, ascending = parameter.ascending })
+        seen[parameter.property] = true
+    end
+
+    for _, parameter in ipairs(m.config.defaultSortParameters) do
+        if not seen[parameter.property] then
+            table.insert(fullParameters, { property = parameter.property, ascending = parameter.ascending })
         end
     end
 
-    return sortCriteria
+    return fullParameters
 end
 
 
@@ -557,7 +631,7 @@ end
 -- @return number Column width that can accomodate title with sorting indicator or data.
 --
 function m.calculateRequiredColumnTextWidth(title, data)
-    local sortIndicator = "\27[widget_arrow_down_01]"
+    local sortIndicator = "⁹\27[widget_arrow_down_01]"
 
     local titleWidth = Helper.scaleX(C.GetTextWidth(title, Helper.standardFont, Helper.standardFontSize))
     local dataWidth = Helper.scaleX(C.GetTextWidth(data, Helper.standardFont, Helper.standardFontSize))
