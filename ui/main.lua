@@ -112,6 +112,8 @@ m.config = {
         { property = "amount", ascending = true },
     },
 
+    -- @TODO: The fucking font implements superscript only for digits 1, 2, and 3
+    --     (facepalm) Unbelievable... Find an alternative way to mark the order instead...
     -- Column indicators when sorting by player-indicated order.
     sortOrderIndicators = {"¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"}
 }
