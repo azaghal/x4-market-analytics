@@ -157,7 +157,7 @@ end
 
 --- Registers custom button on the map menu's right bar used to access market analytics.
 --
--- @param menuConfig table Map menu configuration.
+-- @param menuConfig { * = * } Map menu configuration.
 --
 function m.registerRightBar(menuConfig)
     -- Bail out if the button has already been registered.
@@ -246,7 +246,7 @@ end
 
 --- Creates menu header table at the very top of the frame.
 --
--- @param frame table Frame descriptor where the table should be created.
+-- @param frame { * = * } Frame descriptor where the table should be created.
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
@@ -275,7 +275,7 @@ end
 
 --- Creates table with various menu controls (paginatioin, filters, etc).
 --
--- @param frame table Frame descriptor where the table should be created.
+-- @param frame { * = * } Frame descriptor where the table should be created.
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
@@ -357,7 +357,7 @@ end
 
 --- Creates listing table for the wares.
 --
--- @param frame table Frame descriptor where the tabkle should be created.
+-- @param frame { * = * } Frame descriptor where the tabkle should be created.
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
@@ -459,7 +459,7 @@ end
 
 --- Render offers in the ware listing table.
 --
--- @param ftable table Table descriptor.
+-- @param ftable { * = * } Table descriptor.
 --
 function m.renderOffers(ftable)
     local from = 1 + m.state.pageSize * (m.state.currentPage - 1)
@@ -575,8 +575,8 @@ end
 -- Trade offers are sorted using the passed-in parameters. Sorting parameters are processed in provided order until a first non-equal match between the two
 -- offers can be established.
 --
--- @param a table Offer entry.
--- @param b table Offer entry.
+-- @param a { * = * } Offer entry.
+-- @param b { * = * } Offer entry.
 -- @param parameters {{ property = string, ascending = bool}} List of parameters to use for comparing the trade offers.
 -- @param parameterIndex number Index of parameter in the parameters list to use for current comparison operation.
 --
