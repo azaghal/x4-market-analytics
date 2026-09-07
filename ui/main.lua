@@ -134,7 +134,9 @@ function m.init()
     m.state = {
         currentPage = 1,
         sortParameters = { { property = "factionText", ascending = true } },
-        filters = {},
+        filters = {
+            factions = {},
+        },
     }
 
     -- @TODO: Candidate for deduplicatioin or simplification
@@ -370,6 +372,37 @@ function m.createControlsTable(frame, offsetX, offsetY)
 end
 
 
+--- Creates filter controls in the wares table.
+--
+-- @param ftable {*} Table descriptor for wares listing.
+--
+function m.createFilterControls(ftable)
+    local row = ftable:addRow(true, { fixed = true })
+
+    -- Factions filter
+    local filterText = m.getFilterText(m.filter.factions)
+    row[1]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_inactive"] })
+    row[1].handlers.onClick = function()
+        local factions = GetLibrary("factions")
+        local options = {}
+        for _, faction in ipairs(factions) do
+            if faction.id ~= "player" then
+                table.insert(options, { id = faction.id, text = faction.name, state = m.state.filters.factions[faction.id] })
+            end
+        end
+
+        -- @TODO: This sorts by the faction icon instead of the name, which may not be expected by the player.
+        table.sort(options, function(a, b) return a.text < b.text end)
+
+        -- @TODO: May get nil when using joystick mode.
+        local x, y = GetLocalMousePosition()
+        x = x + Helper.viewWidth / 2
+        y = Helper.viewHeight / 2 - y
+        m.createMultiValuePicker(x, y, 280, "Select Factions", options, m.setFactionFilter)
+    end
+end
+
+
 --- Creates listing table for the wares.
 --
 -- @param frame {*} Frame descriptor where the tabkle should be created.
@@ -465,6 +498,12 @@ function m.createWaresTable(frame, offsetX, offsetY)
             m.menu.refreshInfoFrame2()
         end
     end
+
+    m.createFilterControls(ftable)
+
+    -- Separator line.
+    local row = ftable:addRow(false)
+    row[1]:setColSpan(9):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
 
     return ftable
 end
@@ -686,6 +725,96 @@ function m.calculateRequiredColumnTextWidth(title, data)
 end
 
 
+--- Creates context menu for picking multiple values.
+--
+-- @param x number Horisontal position where the menu should be shown (top-left corner).
+-- @param y number Vertical position where the menu should be shown (top-left corner).
+-- @param width number Total menu width.
+-- @param title string Menu title to show in menu header.
+-- @param options [{ id = string, text = string, state = bool }] List of options to show.
+-- @param callback function(id = string, state = bool) Callback function to call anytime a checkbox is ticked by the player.
+--
+function m.createMultiValuePicker(x, y, width, title, options, callback)
+    local allOptionsEnabled = true
+    for _, option in ipairs(options) do
+        if not option.state then
+            allOptionsEnabled = false
+            break
+        end
+    end
+
+    local frame = Helper.createFrameHandle(
+        m.menu,
+        {
+            x = x,
+            y = y,
+            width = width,
+            layer = m.menuConfig.contextFrameLayer,
+            standardButtons = { close = true },
+            closeOnUnhandledClick = true,
+        }
+    )
+    local ftable = frame:addTable(
+        2,
+        {
+            tabOrder = 1,
+            highlightMode = "off",
+            backgroundID = "solid",
+            backgroundColor = Color["frame_background_black"],
+            reserveScrollBar = false,
+            x = offsetX,
+            y = offsetY,
+        }
+    )
+
+    ftable:setColWidth(1, m.menuConfig.mapRowHeight)
+
+    local row = ftable:addRow(true, { fixed = true })
+    row[1]:createCheckBox(allOptionsEnabled, { height = m.menuConfig.mapRowHeight })
+    row[1].handlers.onClick = function(_, state)
+        for _, row in ipairs(ftable.rows) do
+            C.SetCheckBoxChecked2(row[1].id, state, true)
+        end
+        callback(nil, state, options)
+    end
+    row[2]:createText(title, Helper.headerRowCenteredProperties)
+
+    for _, option in ipairs(options) do
+        local row = ftable:addRow(true)
+        row[1]:createCheckBox(option.state, { height = Helper.standardTextHeight, width = Helper.standardTextHeight })
+        row[1].handlers.onClick = function(_, state) callback(option.id, state) end
+        row[2]:createText(option.text)
+    end
+
+    m.menu.contextMenuMode = "marketanalytics-multivaluepicker"
+    m.menu.contextFrame = frame
+    m.menu.contextFrame:display()
+end
+
+
+--- Sets filter for trade offers based on factions.
+--
+-- @param id string|nil Faction identifier (as returned by GetLibrary("factions")). If nil, state is applied against all factions defined via passed-in options.
+-- @param state bool Whether trade offers belonging to this faction should be shown or not.
+-- @param options [{id = string, text = string, state = bool}] Complete list of possible faction options
+--
+function m.setFactionFilter(id, state, options)
+    if id then
+        m.state.filters.factions[id] = state or nil
+    elseif state then
+        for _, option in ipairs(options) do
+            m.state.filters.factions[option.id] = state
+        end
+    else
+        -- Clear factions filter.
+        m.state.filters.factions = {}
+    end
+
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshInfoFrame2()
+end
+
+
 -- Trade offer filters
 -- ===================
 
@@ -733,6 +862,42 @@ function m.filter.mapSearchWares(offer)
     end
 
     return false
+end
+
+
+--- Filters offers by player-selected factions.
+--
+-- @param offer {*} Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.factions(offer)
+    return next(m.state.filters.factions) == nil and true or not not m.state.filters.factions[offer.faction]
+end
+
+
+--- Generates textual representation for the passed-in filter based on current filter state.
+--
+-- @param filter function Filter function for which to generate status text.
+--
+-- @return string Textual representation of filter's current state.
+--
+function m.getFilterText(filter)
+    if filter == m.filter.factions then
+        if not next(m.state.filters.factions) then
+            return "\27[mapst_factionrelation]"
+        end
+
+        local icons = {}
+        for faction, _ in pairs(m.state.filters.factions) do
+            table.insert(icons, string.format("\27[faction_%s]", faction))
+        end
+        table.sort(icons)
+
+        return table.concat(icons, "")
+    end
+
+    return ""
 end
 
 
