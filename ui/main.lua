@@ -600,6 +600,11 @@ function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
     m.state.pageSize = pageSize
     m.state.pageCount = math.ceil(#m.state.filteredOffers / m.state.pageSize)
     m.state.currentPage = math.min(m.state.currentPage, m.state.pageCount)
+
+    -- This can happen with sequence: pageCount > 0 -> pageCount == 0 -> pageCount > 0.k
+    if m.state.pageCount > 0 and m.state.currentPage == 0 then
+        m.state.currentPage = 1
+    end
 end
 
 
