@@ -172,7 +172,7 @@ end
 
 --- Registers custom button on the map menu's right bar used to access market analytics.
 --
--- @param menuConfig { * = * } Map menu configuration.
+-- @param menuConfig {*} Map menu configuration.
 --
 function m.registerRightBar(menuConfig)
     -- Bail out if the button has already been registered.
@@ -261,7 +261,7 @@ end
 
 --- Creates menu header table at the very top of the frame.
 --
--- @param frame { * = * } Frame descriptor where the table should be created.
+-- @param frame {*} Frame descriptor where the table should be created.
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
@@ -290,7 +290,7 @@ end
 
 --- Creates table with various menu controls (paginatioin, filters, etc).
 --
--- @param frame { * = * } Frame descriptor where the table should be created.
+-- @param frame {*} Frame descriptor where the table should be created.
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
@@ -372,7 +372,7 @@ end
 
 --- Creates listing table for the wares.
 --
--- @param frame { * = * } Frame descriptor where the tabkle should be created.
+-- @param frame {*} Frame descriptor where the tabkle should be created.
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
@@ -472,7 +472,7 @@ end
 
 --- Render offers in the ware listing table.
 --
--- @param ftable { * = * } Table descriptor.
+-- @param ftable {*} Table descriptor.
 --
 function m.renderOffers(ftable)
     if #m.state.filteredOffers == 0 then
@@ -503,7 +503,7 @@ end
 -- @return [table{faction = component<faction>, factionText = string, station = component<station>, stationText = string,
 --     sector = component<sector>, sectorText = string, distance = number, distanceText = string, ware = component<ware>, wareText = string,
 --     offerType = nil|1|2|3, offerTypeText = string, price = number, priceText = string, markup = number, markupText = string,
---     amount = number, amountText = string}] List of active trade offers.
+--     amount = number, amountText = string}]  List of active trade offers.
 --
 function m.getTradeOffers()
     local offers = {}
@@ -615,9 +615,9 @@ end
 --
 -- Sort parameters are attempted in the given order until a non-equality can be established.
 --
--- @param a { * = * } Offer entry.
--- @param b { * = * } Offer entry.
--- @param sortParameters {{ property = string, ascending = bool}} List of parameters to use for comparing the trade offers.
+-- @param a {*} Offer entry.
+-- @param b {*} Offer entry.
+-- @param sortParameters [{ property = string, ascending = bool}] List of parameters to use for comparing the trade offers.
 --
 -- @return bool Whether the first offer should be placed before the second offer.
 --
@@ -638,9 +638,9 @@ end
 
 --- Generates full list of sort parameters, starting with passed-in parameters and continuing with remaining unused default sort parameters.
 --
--- @param parameters {{ property = string, ascending = bool }} List of preferred sort parameters.
+-- @param parameters [{ property = string, ascending = bool }] List of preferred sort parameters.
 --
--- @return {{ property = string, ascending = bool }} Full list of sort parameters.
+-- @return [{ property = string, ascending = bool }] Full list of sort parameters.
 --
 function m.generateFullSortParameters(parameters)
     local fullParameters = {}
@@ -687,7 +687,7 @@ end
 
 --- Filters offer by sectors selected in the map menu.
 --
--- @param offer { * = * } Offer to check.
+-- @param offer {*} Offer to check.
 --
 -- @return bool true if the offer satisfies the filter, false otherwise.
 --
@@ -710,7 +710,7 @@ end
 
 --- Filters offer by wares selected in the map menu.
 --
--- @param offer { * = * } Offer to check.
+-- @param offer {*} Offer to check.
 --
 -- @return bool true if the offer satisfies the filter, false otherwise.
 --
