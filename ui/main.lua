@@ -167,6 +167,13 @@ function m.init()
         column.width = column.fixedWidth and m.calculateRequiredColumnTextWidth(column.title, column.dataSample) or nil
     end
 
+    -- Keep track of how much volume different wares take up per unit.
+    m.menu.prepareEconomyWares()
+    m.state.wareVolume = {}
+    for _, ware in pairs(m.menu.economyWares) do
+        m.state.wareVolume[ware] = GetWareData(ware, "volume")
+    end
+
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
     m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
 
@@ -479,7 +486,7 @@ function m.createFilterControls(ftable)
         m.menu.refreshInfoFrame2()
     end
 
-    -- Amount filter
+    -- Amount filter by volume
     local setting = m.menuConfig.layersettings.layer_trade[4]
     local volume = m.menu.getFilterOption("trade_volume", setting.savegame)
     row[9]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
@@ -1129,7 +1136,7 @@ end
 function m.filter.mapTradeVolume(offer)
     local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
 
-    return offer.amount >= volume
+    return offer.amount * m.state.wareVolume[offer.ware] >= volume
 end
 
 
