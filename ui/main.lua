@@ -179,10 +179,12 @@ function m.init()
     -- Store references to original functions.
     m.original.setSectorFilter = m.menu.setSectorFilter
     m.original.filterTradeWares = m.menu.filterTradeWares
+    m.original.filterTradeVolume = m.menu.filterTradeVolume
 
     -- Override original functions with custom implementation.
     m.menu.setSectorFilter = m.override.setSectorFilter
     m.menu.filterTradeWares = m.override.filterTradeWares
+    -- m.menu.filterTradeVolume = m.override.filterTradeVolume
 end
 
 
@@ -1164,8 +1166,10 @@ end
 --
 function m.override.setSectorFilter(...)
     m.original.setSectorFilter(...)
-    if m.menu.searchTableMode == "marketanalytics" then
+    if m.state.filteredOffers then
         m.updateOffers(m.state.pageSize, false, true, true)
+    end
+    if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()
     end
 end
@@ -1175,8 +1179,23 @@ end
 --
 function m.override.filterTradeWares(...)
     m.original.filterTradeWares(...)
-    if m.menu.searchTableMode == "marketanalytics" then
+    if m.state.filteredOffers then
         m.updateOffers(m.state.pageSize, false, true, true)
+    end
+    if m.menu.searchTableMode == "marketanalytics" then
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Update offers and redraw the market analytics when player changes the map menu trade volume filters.
+--
+function m.override.filterTradeVolume(...)
+    m.original.filterTradeVolume(...)
+    if m.state.filteredOffers then
+        m.updateOffers(m.state.pageSize, false, true, true)
+    end
+    if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()
     end
 end
