@@ -76,7 +76,7 @@ m.config = {
             index = 6,
             title = "Type",
             dataSample = "Sells",
-            sortProperty = "offerTypeText",
+            sortProperty = "typeText",
             fixedWidth = true,
         },
         {
@@ -112,7 +112,7 @@ m.config = {
         { property = "sectorText", ascending = true },
         { property = "distance", ascending = true },
         { property = "wareText", ascending = true },
-        { property = "offerTypeText", ascending = true },
+        { property = "typeText", ascending = true },
         { property = "price", ascending = true },
         { property = "markup", ascending = true },
         { property = "amount", ascending = true },
@@ -142,6 +142,7 @@ function m.init()
             -- @TODO: Currently not changeable by player, but maybe think about adding support for it in the future.
             minDistance = 0,
             maxDistance = m.config.maxDistanceFilterLimit,
+            type = 0,
         },
     }
 
@@ -429,6 +430,30 @@ function m.createFilterControls(ftable)
         m.updateOffers(m.state.pageSize, false, true, true)
         m.menu.refreshInfoFrame2()
     end
+
+    -- Offer type filter
+    local options = {
+        -- @NOTE: ID 0 does _not_ correspond to offer.type == 0 (offer.type == 0 is _probably_ not possible).
+        { id = "0", text = "All", icon = "", displayremoveoption = false},
+        { id = "1", text = "Buys", icon = "", displayremoveoption = false},
+        { id = "2", text = "Sells", icon = "", displayremoveoption = false},
+    }
+    row[6]:createDropDown(
+        options,
+        {
+            startOption = tostring(m.state.filters.type),
+            height = Helper.standardButtonHeight,
+            bgColor = Color["row_background"],
+        }
+    )
+    row[6].handlers.onDropDownActivated = function() m.menu.noupdate = true end
+    row[6].handlers.onDropDownConfirmed = function(_, id)
+        m.menu.noupdate = nil
+        m.state.filters.type = tonumber(id)
+        m.updateOffers(m.state.pageSize, false, true, true)
+        m.menu.refreshInfoFrame2()
+    end
+
 end
 
 
@@ -558,7 +583,7 @@ function m.renderOffers(ftable)
         row[3]:createText(offer.sectorText)
         row[4]:createText(offer.distanceText, { halign = "right" })
         row[5]:createText(offer.wareText)
-        row[6]:createText(offer.offerTypeText)
+        row[6]:createText(offer.typeText)
         row[7]:createText(offer.priceText, { halign = "right" })
         row[8]:createText(offer.markupText, { halign = "right" })
         row[9]:createText(offer.amountText, { halign = "right" })
@@ -570,7 +595,7 @@ end
 --
 -- @return [table{faction = component<faction>, factionText = string, station = component<station>, stationText = string,
 --     sector = component<sector>, sectorText = string, distance = number, distanceText = string, ware = component<ware>, wareText = string,
---     offerType = nil|1|2|3, offerTypeText = string, price = number, priceText = string, markup = number, markupText = string,
+--     type = 1|2|nil, typeText = string, price = number, priceText = string, markup = number, markupText = string,
 --     amount = number, amountText = string}]  List of active trade offers.
 --
 function m.getTradeOffers()
@@ -606,8 +631,8 @@ function m.getTradeOffers()
                             distanceText = tostring(jumpDistance) .. "j",
                             ware = trade.ware,
                             wareText = trade.name,
-                            offerType = trade.isbuyoffer and trade.isselloffer and 3 or trade.isbuyoffer and 2 or trade.isselloffer and 1 or nil,
-                            offerTypeText = trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None",
+                            type = trade.isbuyoffer and 1 or trade.isselloffer and 2 or nil,
+                            typeText = trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None",
                             price = trade.price,
                             -- Arguments: price, includeFraction, includeComma, ?, ?
                             priceText = ConvertMoneyString(trade.price, true, true, 0, true) .. currencySuffix,
@@ -943,6 +968,21 @@ end
 --
 function m.filter.distance(offer)
     return offer.distance >= m.state.filters.minDistance and offer.distance <= m.state.filters.maxDistance
+end
+
+
+--- Filters offers by offer type.
+--
+-- @param offer {*} Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.type(offer)
+    if m.state.filters.type == 0 then
+        return true
+    end
+
+    return offer.type == m.state.filters.type
 end
 
 
