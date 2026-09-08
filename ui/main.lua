@@ -1052,23 +1052,24 @@ end
 -- @return string Textual representation of filter's current state.
 --
 function m.getFilterText(filter)
+    local text = "err-nofiltermatch"
+
     if filter == m.filter.factions then
         if not next(m.state.filters.factions) then
-            return "\27[mapst_factionrelation]"
-        end
+            text = "\27[mapst_factionrelation]"
+        else
+            local icons = {}
+            for faction, _ in pairs(m.state.filters.factions) do
+                table.insert(icons, string.format("\27[faction_%s]", faction))
+            end
+            table.sort(icons)
 
-        local icons = {}
-        for faction, _ in pairs(m.state.filters.factions) do
-            table.insert(icons, string.format("\27[faction_%s]", faction))
-        end
-        table.sort(icons)
+            text = table.concat(icons, "")
 
-        local text = table.concat(icons, "")
-        if C.GetTextWidth(text, Helper.standardFont, Helper.standardFontSize) > m.config.wareColumns[1].width then
-            text = string.format("(%s)", #icons)
+            if C.GetTextWidth(text, Helper.standardFont, Helper.standardFontSize) > m.config.wareColumns[1].width then
+                text = string.format("(%s)", #icons)
+            end
         end
-
-        return text
 
     elseif filter == m.filter.mapTradeVolume then
         local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
@@ -1076,7 +1077,7 @@ function m.getFilterText(filter)
             m.state.tradeVolumeInfo = m.getTradeVolumeInfo()
         end
 
-        return m.state.tradeVolumeInfo[volume].text
+        text = m.state.tradeVolumeInfo[volume].text
 
     elseif filter == m.filter.mapSearchWares then
         local _, wares = m.menu.getTradeWareFilter(true)
@@ -1085,10 +1086,11 @@ function m.getFilterText(filter)
             table.insert(names, GetWareData(ware, "name"))
         end
 
-        return table.concat(names, ", ")
+        text = table.concat(names, ", ")
+
     end
 
-    return "err-nofiltermatch"
+    return text
 end
 
 
