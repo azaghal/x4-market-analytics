@@ -715,9 +715,9 @@ end
 function m.calculateRequiredColumnTextWidth(title, data)
     local sortIndicator = "⁹\27[widget_arrow_down_01]"
 
-    local titleWidth = Helper.scaleX(C.GetTextWidth(title, Helper.standardFont, Helper.standardFontSize))
-    local dataWidth = Helper.scaleX(C.GetTextWidth(data, Helper.standardFont, Helper.standardFontSize))
-    local sortIndicatorWidth = Helper.scaleX(C.GetTextWidth(sortIndicator, Helper.standardFont, Helper.standardFontSize))
+    local titleWidth = C.GetTextWidth(title, Helper.standardFont, Helper.standardFontSize)
+    local dataWidth = C.GetTextWidth(data, Helper.standardFont, Helper.standardFontSize)
+    local sortIndicatorWidth = C.GetTextWidth(sortIndicator, Helper.standardFont, Helper.standardFontSize)
 
     local maximumWidth = math.max(titleWidth + sortIndicatorWidth, dataWidth) + Helper.standardTextOffsetx
 
