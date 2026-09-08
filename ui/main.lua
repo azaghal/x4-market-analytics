@@ -121,7 +121,10 @@ m.config = {
     -- @TODO: The fucking font implements superscript only for digits 1, 2, and 3
     --     (facepalm) Unbelievable... Find an alternative way to mark the order instead...
     -- Column indicators when sorting by player-indicated order.
-    sortOrderIndicators = {"¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"}
+    sortOrderIndicators = {"¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"},
+
+    -- Upper limit for the maximum distance filter.
+    maxDistanceFilterLimit = 10,
 }
 
 
@@ -136,6 +139,9 @@ function m.init()
         sortParameters = { { property = "factionText", ascending = true } },
         filters = {
             factions = {},
+            -- @TODO: Currently not changeable by player, but maybe think about adding support for it in the future.
+            minDistance = 0,
+            maxDistance = m.config.maxDistanceFilterLimit,
         },
     }
 
@@ -309,7 +315,6 @@ function m.createControlsTable(frame, offsetX, offsetY)
             reserveScrollBar = false,
             x = offsetX,
             y = offsetY,
-
         }
     )
 
@@ -381,7 +386,7 @@ function m.createFilterControls(ftable)
 
     -- Factions filter
     local filterText = m.getFilterText(m.filter.factions)
-    row[1]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_inactive"] })
+    row[1]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[1].handlers.onClick = function()
         local factions = GetLibrary("factions")
         local options = {}
@@ -399,6 +404,30 @@ function m.createFilterControls(ftable)
         x = x + Helper.viewWidth / 2
         y = Helper.viewHeight / 2 - y
         m.createMultiValuePicker(x, y, 280, "Select Factions", options, m.setFactionFilter)
+    end
+
+    -- Distance filter
+    local options = {}
+    for range = 0, m.config.maxDistanceFilterLimit do
+        -- Extra whitespace at end of text helps align the text with text in data rows.
+        table.insert(options, { id = tostring(range), text = tostring(range) .. "j ", icon = "", displayremoveoption = false, align = "right" })
+    end
+
+    row[4]:createDropDown(
+        options,
+        {
+            startOption = tostring(m.state.filters.maxDistance),
+            height = Helper.standardButtonHeight,
+            bgColor = Color["row_background"],
+        }
+    )
+    row[4]:setTextProperties({ color = Color["text_normal"], halign = "right" })
+    row[4].handlers.onDropDownActivated = function() m.menu.noupdate = true end
+    row[4].handlers.onDropDownConfirmed = function(_, id)
+        m.menu.noupdate = nil
+        m.state.filters.maxDistance = tonumber(id)
+        m.updateOffers(m.state.pageSize, false, true, true)
+        m.menu.refreshInfoFrame2()
     end
 end
 
@@ -903,6 +932,17 @@ function m.getFilterText(filter)
     end
 
     return ""
+end
+
+
+--- Filters offers by distance (jump gate/accelerator/super-highway) range.
+--
+-- @param offer {*} Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.distance(offer)
+    return offer.distance >= m.state.filters.minDistance and offer.distance <= m.state.filters.maxDistance
 end
 
 
