@@ -144,6 +144,7 @@ function m.init()
             maxDistance = m.config.maxDistanceFilterLimit,
             type = 0,
         },
+        tradeVolumeInfo = m.getTradeVolumeInfo(),
     }
 
     -- @TODO: Candidate for deduplicatioin or simplification
@@ -454,6 +455,20 @@ function m.createFilterControls(ftable)
         m.menu.refreshInfoFrame2()
     end
 
+    -- Amount filter
+    local setting = m.menuConfig.layersettings.layer_trade[4]
+    local volume = m.menu.getFilterOption("trade_volume", setting.savegame)
+    row[9]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
+    row[9]:setText(m.getFilterText(m.filter.mapTradeVolume), { halign = "right" })
+    row[9].handlers.onClick = function()
+        local setting = m.menuConfig.layersettings.layer_trade[4]
+        local currentVolume = m.menu.getFilterOption("trade_volume", setting.savegame)
+        local currentVolumeInfo = m.state.tradeVolumeInfo[currentVolume]
+        local nextVolume = currentVolumeInfo.nextVolume
+        m.menu.setFilterOption("layer_trade", setting, "trade_volume", nextVolume)
+        m.updateOffers(m.state.pageSize, false, true, true)
+	m.menu.refreshMainFrame = true
+    end
 end
 
 
@@ -869,6 +884,48 @@ function m.setFactionFilter(id, state, options)
 end
 
 
+--- Generates trade volume threshold information.
+--
+-- @return { amount = { name = string, text = string, mouseOverText = string, nextVolume = number } } Mapping beetween trade volume thresholds and their
+--     representation.
+--
+function m.getTradeVolumeInfo()
+    local volume = C.GetMapTradeVolumeParameter()
+    local volumeIcon = string.format("\27[%s]", ffi.string(volume.icon))
+    local volumeColorActive  = Helper.convertColorToText({ r = volume.color.red, g = volume.color.green,  b = volume.color.blue, a = volume.color.alpha })
+    local volumeColorInactive = Helper.convertColorToText(Color["text_inactive"])
+
+    local volumeInfo = {
+        [0] = {
+            name = "none",
+            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 3), volumeColorActive, string.rep(volumeIcon, 0)),
+            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 8359)),
+            nextVolume = volume.volume_s,
+        },
+        [volume.volume_s] = {
+            name = "small",
+            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 2), volumeColorActive, string.rep(volumeIcon, 1)),
+            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2853)),
+            nextVolume = volume.volume_m,
+        },
+        [volume.volume_m] = {
+            name = "medium",
+            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 1), volumeColorActive, string.rep(volumeIcon, 2)),
+            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2854)),
+            nextVolume = volume.volume_l,
+        },
+        [volume.volume_l] = {
+            name = "large",
+            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 0), volumeColorActive, string.rep(volumeIcon, 3)),
+            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2855)),
+            nextVolume = 0,
+        },
+    }
+
+    return volumeInfo
+end
+
+
 -- Trade offer filters
 -- ===================
 
@@ -954,6 +1011,13 @@ function m.getFilterText(filter)
         end
 
         return text
+    elseif filter == m.filter.mapTradeVolume then
+        local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
+        if not m.state.tradeVolumeInfo[volume] then
+            m.state.tradeVolumeInfo = m.getTradeVolumeInfo()
+        end
+
+        return m.state.tradeVolumeInfo[volume].text
     end
 
     return ""
@@ -983,6 +1047,19 @@ function m.filter.type(offer)
     end
 
     return offer.type == m.state.filters.type
+end
+
+
+--- Filters offer by minimum trade offer volume selected in the map menu.
+--
+-- @param offer {*} Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.mapTradeVolume(offer)
+    local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
+
+    return offer.amount >= volume
 end
 
 
