@@ -144,7 +144,6 @@ function m.init()
             maxDistance = m.config.maxDistanceFilterLimit,
             type = 0,
         },
-        tradeVolumeInfo = m.getTradeVolumeInfo(),
     }
 
     -- @TODO: Candidate for deduplicatioin or simplification
@@ -487,15 +486,14 @@ function m.createFilterControls(ftable)
     end
 
     -- Amount filter by volume
-    local setting = m.menuConfig.layersettings.layer_trade[4]
-    local volume = m.menu.getFilterOption("trade_volume", setting.savegame)
     row[9]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[9]:setText(m.getFilterText(m.filter.mapTradeVolume), { halign = "right" })
     row[9].handlers.onClick = function()
         local setting = m.menuConfig.layersettings.layer_trade[4]
         local currentVolume = m.menu.getFilterOption("trade_volume", setting.savegame)
-        local currentVolumeInfo = m.state.tradeVolumeInfo[currentVolume]
+        local currentVolumeInfo = m.getTradeVolumeInfo(currentVolume) or m.getTradeVolumeInfo(0)
         local nextVolume = currentVolumeInfo.nextVolume
+
         m.menu.setFilterOption("layer_trade", setting, "trade_volume", nextVolume)
         m.updateOffers(m.state.pageSize, false, true, true)
 	m.menu.refreshMainFrame = true
@@ -949,45 +947,67 @@ function m.setWareFilter(id, state, options)
 end
 
 
---- Generates trade volume threshold information.
+--- Generates trade volume threshold information for passed-in volume.
 --
--- @return { amount = { name = string, text = string, mouseOverText = string, nextVolume = number } } Mapping beetween trade volume thresholds and their
---     representation.
+-- May return nil if the passed-in volume is no longer valid.
 --
-function m.getTradeVolumeInfo()
-    local volume = C.GetMapTradeVolumeParameter()
-    local volumeIcon = string.format("\27[%s]", ffi.string(volume.icon))
-    local volumeColorActive  = Helper.convertColorToText({ r = volume.color.red, g = volume.color.green,  b = volume.color.blue, a = volume.color.alpha })
-    local volumeColorInactive = Helper.convertColorToText(Color["text_inactive"])
+-- @param volume number Trade volume for which to get information.
+--
+-- @return { name = string, text = string, mouseOverText = string, nextVolume = number }|nil Trade volume information/representation.
+--
+function m.getTradeVolumeInfo(volume)
+    m.state.volumeInfoCache = m.state.volumeInfo or {}
+    local volumeInfo = m.state.volumeInfoCache[volume]
 
-    local volumeInfo = {
-        [0] = {
-            name = "none",
-            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 3), volumeColorActive, string.rep(volumeIcon, 0)),
-            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 8359)),
-            nextVolume = volume.volume_s,
-        },
-        [volume.volume_s] = {
-            name = "small",
-            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 2), volumeColorActive, string.rep(volumeIcon, 1)),
-            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2853)),
-            nextVolume = volume.volume_m,
-        },
-        [volume.volume_m] = {
-            name = "medium",
-            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 1), volumeColorActive, string.rep(volumeIcon, 2)),
-            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2854)),
-            nextVolume = volume.volume_l,
-        },
-        [volume.volume_l] = {
-            name = "large",
-            text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 0), volumeColorActive, string.rep(volumeIcon, 3)),
-            mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2855)),
-            nextVolume = 0,
-        },
-    }
+    -- Invalidate the cache.
+    -- @NOTE: Why the hell can this change over time?
+    --     Initial attempts to cache the information during initialisation have failed - mainly because the returned threshold values seems to change once the
+    --     game has fully loaded. Volume parameter probably depends on current state of explored/known universe and available trades or maybe available/visible
+    --     ship sizes.
+    if not volumeInfo then
+        local volumeParameter = C.GetMapTradeVolumeParameter()
+        local volumeIcon = string.format("\27[%s]", ffi.string(volumeParameter.icon))
+        local volumeColorActive = Helper.convertColorToText({
+            r = volumeParameter.color.red,
+            g = volumeParameter.color.green,
+            b = volumeParameter.color.blue,
+            a = volumeParameter.color.alpha
+        })
+        local volumeColorInactive = Helper.convertColorToText(Color["text_inactive"])
 
-    return volumeInfo
+        m.state.volumeInfoCache = {
+            [0] = {
+                name = "none",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 3), volumeColorActive, string.rep(volumeIcon, 0)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 8359)),
+                volume = 0,
+                nextVolume = volumeParameter.volume_s,
+            },
+            [volumeParameter.volume_s] = {
+                name = "small",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 2), volumeColorActive, string.rep(volumeIcon, 1)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2853)),
+                volume = volumeParameter.volume_s,
+                nextVolume = volumeParameter.volume_m,
+            },
+            [volumeParameter.volume_m] = {
+                name = "medium",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 1), volumeColorActive, string.rep(volumeIcon, 2)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2854)),
+                volume = volumeParameter.volume_m,
+                nextVolume = volumeParameter.volume_l,
+            },
+            [volumeParameter.volume_l] = {
+                name = "large",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 0), volumeColorActive, string.rep(volumeIcon, 3)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2855)),
+                volume = volumeParameter.volume_l,
+                nextVolume = 0,
+            },
+        }
+    end
+
+    return m.state.volumeInfoCache[volume] or nil
 end
 
 
@@ -1080,11 +1100,8 @@ function m.getFilterText(filter)
 
     elseif filter == m.filter.mapTradeVolume then
         local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
-        if not m.state.tradeVolumeInfo[volume] then
-            m.state.tradeVolumeInfo = m.getTradeVolumeInfo()
-        end
-
-        text = m.state.tradeVolumeInfo[volume].text
+        local volumeInfo = m.getTradeVolumeInfo(volume) or m.getTradeVolumeInfo(0)
+        text = volumeInfo.text
 
     elseif filter == m.filter.mapSearchWares then
         local _, wares = m.menu.getTradeWareFilter(true)
