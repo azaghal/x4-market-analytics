@@ -35,7 +35,7 @@ m.config = {
             id = "faction",
             index = 1,
             title = "\27[mapst_factionrelation]",
-            dataSample = "\27[faction_argon]",
+            dataSample = "\27[faction_argon]\27[faction_argon]\27[faction_argon]",
             sortProperty = "factionText",
             fixedWidth = true,
         },
@@ -894,7 +894,12 @@ function m.getFilterText(filter)
         end
         table.sort(icons)
 
-        return table.concat(icons, "")
+        local text = table.concat(icons, "")
+        if C.GetTextWidth(text, Helper.standardFont, Helper.standardFontSize) > m.config.wareColumns[1].width then
+            text = string.format("(%s)", #icons)
+        end
+
+        return text
     end
 
     return ""
