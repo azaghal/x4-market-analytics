@@ -166,7 +166,7 @@ function m.init()
     m.original.setSectorFilter = m.menu.setSectorFilter
     m.original.filterTradeWares = m.menu.filterTradeWares
 
-    -- Override original functioins with custom implementation.
+    -- Override original functions with custom implementation.
     m.menu.setSectorFilter = m.override.setSectorFilter
     m.menu.filterTradeWares = m.override.filterTradeWares
 end
@@ -901,8 +901,8 @@ function m.getFilterText(filter)
 end
 
 
--- Override functioins
--- ===================
+-- Override functions
+-- ==================
 
 
 --- Update offers and redraw the market analytics when player changes the map menu sector filters.
