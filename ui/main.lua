@@ -166,13 +166,6 @@ function m.init()
         column.width = column.fixedWidth and m.calculateRequiredColumnTextWidth(column.title, column.dataSample) or nil
     end
 
-    -- Keep track of how much volume different wares take up per unit.
-    m.menu.prepareEconomyWares()
-    m.state.wareVolume = {}
-    for _, ware in pairs(m.menu.economyWares) do
-        m.state.wareVolume[ware] = GetWareData(ware, "volume")
-    end
-
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
     m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
 
@@ -1013,6 +1006,27 @@ function m.getTradeVolumeInfo(volume)
 end
 
 
+--- Retrieves the volume of a single unit of requested ware.
+--
+-- @param ware string Ware name.
+--
+-- @return number Ware volume.
+--
+function m.getWareVolume(ware)
+    -- @NOTE: Cannot populate during m.init (ends up with no wares)
+    --     After the game is loaded, the C.GetNumWares() invocation in vanilla code that populates the m.menu.economyWares seems to return 0, so probably some
+    --     part of game engine is still not fully initialised.
+    if not m.state.wareVolume then
+        m.state.wareVolume = {}
+        for _, ware in pairs(m.menu.economyWares) do
+            m.state.wareVolume[ware] = GetWareData(ware, "volume")
+        end
+    end
+
+    return m.state.wareVolume[ware]
+end
+
+
 -- Trade offer filters
 -- ===================
 
@@ -1154,7 +1168,7 @@ end
 function m.filter.mapTradeVolume(offer)
     local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
 
-    return offer.amount * m.state.wareVolume[offer.ware] >= volume
+    return offer.amount * m.getWareVolume(offer.ware) >= volume
 end
 
 
