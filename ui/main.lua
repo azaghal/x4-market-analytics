@@ -1093,8 +1093,7 @@ function m.getFilterText(filter)
             table.insert(names, GetWareData(ware, "name"))
         end
 
-        text = table.concat(names, ", ")
-
+        text = #names > 0 and table.concat(names, ", ") or "Any"
     end
 
     return text
