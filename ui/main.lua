@@ -432,6 +432,30 @@ function m.createFilterControls(ftable)
         m.menu.refreshInfoFrame2()
     end
 
+    -- Ware filter
+    local filterText = m.getFilterText(m.filter.mapSearchWares)
+    row[5]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
+    row[5].handlers.onClick = function()
+        local options = {}
+        local setting, filteredWares = m.menu.getTradeWareFilter(true)
+        for _, ware in pairs(m.menu.economyWares) do
+            local state = false
+            for _, filteredWare in ipairs(filteredWares) do
+                if filteredWare == ware then
+                    state = true
+                    break
+                end
+            end
+            table.insert(options, { id = ware, text = GetWareData(ware, "name"), state = state })
+        end
+
+        table.sort(options, function(a, b) return a.text < b.text end)
+        local x, y = GetLocalMousePosition()
+        x = x + Helper.viewWidth / 2
+        y = Helper.viewHeight / 2 - y
+        m.createMultiValuePicker(x, y, 280, "Select Wares", options, m.setWareFilter)
+    end
+
     -- Offer type filter
     local options = {
         -- @NOTE: ID 0 does _not_ correspond to offer.type == 0 (offer.type == 0 is _probably_ not possible).
@@ -885,6 +909,39 @@ function m.setFactionFilter(id, state, options)
 end
 
 
+--- Sets filter for trade offers based on wares filtered via map menu.
+--
+-- Syncs the changes into map search.
+--
+-- @param id string|nil Ware identifier (as returned by GetLibrary("wares")). If nil, state is applied against all wares defined via passed-in options.
+-- @param state bool Whether trade offers for this ware should be shown or not.
+-- @param options [{id = string, text = string, state = bool}] Complete list of possible ware options.
+--
+function m.setWareFilter(id, state, options)
+    local wares = id and {{id = id}} or options
+    local setting, mapFilteredWares = m.menu.getTradeWareFilter(true)
+
+    for _, ware in ipairs(wares) do
+        local found = false
+        for i, filteredWare in ipairs(mapFilteredWares) do
+            if ware.id == filteredWare then
+                found = i
+                break
+            end
+        end
+
+        if state and not found then
+            m.menu.setFilterOption("layer_trade", setting, setting.id, ware.id)
+        elseif not state and found then
+            m.menu.removeFilterOption(setting, setting.id, found)
+        end
+    end
+
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshMainFrame = true
+end
+
+
 --- Generates trade volume threshold information.
 --
 -- @return { amount = { name = string, text = string, mouseOverText = string, nextVolume = number } } Mapping beetween trade volume thresholds and their
@@ -1012,6 +1069,7 @@ function m.getFilterText(filter)
         end
 
         return text
+
     elseif filter == m.filter.mapTradeVolume then
         local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
         if not m.state.tradeVolumeInfo[volume] then
@@ -1019,9 +1077,18 @@ function m.getFilterText(filter)
         end
 
         return m.state.tradeVolumeInfo[volume].text
+
+    elseif filter == m.filter.mapSearchWares then
+        local _, wares = m.menu.getTradeWareFilter(true)
+        local names = {}
+        for _, ware in ipairs(wares) do
+            table.insert(names, GetWareData(ware, "name"))
+        end
+
+        return table.concat(names, ", ")
     end
 
-    return ""
+    return "err-nofiltermatch"
 end
 
 
