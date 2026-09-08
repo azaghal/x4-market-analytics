@@ -818,6 +818,7 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
             x = x,
             y = y,
             width = width,
+            height = Helper.viewHeight - y - Helper.frameBorder,
             layer = m.menuConfig.contextFrameLayer,
             standardButtons = { close = true },
             closeOnUnhandledClick = true,
