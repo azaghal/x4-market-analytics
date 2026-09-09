@@ -348,6 +348,11 @@ function m.createControlsTable(frame, offsetX, offsetY)
         table.sort(options, function(a, b) return a.text < b.text end)
         m.createValuePicker(pickerX, pickerY, row[1]:setColSpan(3):getWidth(), "Select Reference Sector", options, m.setReferenceSector)
     end
+    row[4]:createButton({ width = m.menuConfig.mapRowHeight + Helper.standardTextOffsetx }):setIcon("menu_reset_view")
+    row[4].handlers.onClick = function()
+        local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
+        m.setReferenceSector(ConvertStringToLuaID(tostring(playerSector)))
+    end
 
     row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
     m.widgets.offersAge = row[12]
