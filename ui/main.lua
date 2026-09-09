@@ -696,6 +696,7 @@ function m.getTradeOffers()
             local stations = GetContainedStations(sector, true) or {}
             local sectorName = GetComponentData(sector, "name")
             local jumpDistance = FindJumpRoute(m.state.referenceSector, sector)
+            local realDistance = C.GetDistanceBetween(ConvertStringTo64Bit(tostring(m.state.referenceSector)), ConvertStringTo64Bit(tostring(sector)))
             for _, station in ipairs(stations) do
                 local trades = GetTradeList(station) or {}
                 local stationOwner = GetComponentData(station, "owner")
@@ -715,6 +716,7 @@ function m.getTradeOffers()
                             sectorText = sectorName,
                             distance = jumpDistance,
                             distanceText = tostring(jumpDistance) .. "j",
+                            realDistance = realDistance,
                             ware = trade.ware,
                             wareText = trade.name,
                             type = trade.isbuyoffer and 1 or trade.isselloffer and 2 or nil,
@@ -834,6 +836,10 @@ function m.generateFullSortParameters(parameters)
     for _, parameter in ipairs(parameters) do
         table.insert(fullParameters, { property = parameter.property, ascending = parameter.ascending })
         seen[parameter.property] = true
+        -- @NOTE: Use (hidden) real distance ordering to ensure consistent grouping of stations by sector when ordering by distance.
+        if parameter.property == "distance" then
+            table.insert(fullParameters, { property = "realDistance", ascending = parameter.ascending })
+        end
     end
 
     for _, parameter in ipairs(m.config.defaultSortParameters) do
