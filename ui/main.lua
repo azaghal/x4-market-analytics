@@ -670,7 +670,9 @@ function m.renderOffers(ftable)
     for index = from, to do
         local offer = m.state.filteredOffers[index]
         local row = ftable:addRow(true, { fixed = true })
-        row[1]:createText(offer.factionText)
+        row[1]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
+        row[1].handlers.onClick = function() m.toggleFactionFilter(offer.faction) end
+
         row[2]:createText(offer.stationText)
 
         row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
@@ -1022,6 +1024,15 @@ function m.setFactionFilter(id, state, options)
 
     m.updateOffers(m.state.pageSize, false, true, true)
     m.menu.refreshInfoFrame2()
+end
+
+
+--- Toggles faction in the faction filter.
+--
+-- @param id string Faction identifier (as returned by GetLibrary("factions")).
+--
+function m.toggleFactionFilter(id)
+    m.setFactionFilter(id, not m.state.filters.factions[id])
 end
 
 
