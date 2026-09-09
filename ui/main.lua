@@ -672,7 +672,10 @@ function m.renderOffers(ftable)
         local row = ftable:addRow(true, { fixed = true })
         row[1]:createText(offer.factionText)
         row[2]:createText(offer.stationText)
-        row[3]:createText(offer.sectorText)
+
+        row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
+        row[3].handlers.onClick = function() m.setReferenceSector(offer.sector) end
+
         row[4]:createText(offer.distanceText, { halign = "right" })
         row[5]:createText(offer.wareText)
         row[6]:createText(offer.typeText)
