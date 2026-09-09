@@ -36,7 +36,7 @@ m.config = {
             index = 1,
             title = "\27[mapst_factionrelation]",
             dataSample = "\27[faction_argon]\27[faction_argon]\27[faction_argon]",
-            sortProperty = "factionText",
+            sortProperty = "factionName",
             fixedWidth = true,
         },
         {
@@ -107,7 +107,7 @@ m.config = {
 
     -- Default parameters for sorting trade offers.
     defaultSortParameters = {
-        { property = "factionText", ascending = true },
+        { property = "factionName", ascending = true },
         { property = "stationText", ascending = true },
         { property = "sectorText", ascending = true },
         { property = "distance", ascending = true },
@@ -142,7 +142,7 @@ function m.init()
 
     m.state = {
         currentPage = 1,
-        sortParameters = { { property = "factionText", ascending = true } },
+        sortParameters = { { property = "factionName", ascending = true } },
         filters = {
             factions = {},
             -- @TODO: Currently not changeable by player, but maybe think about adding support for it in the future.
@@ -665,7 +665,7 @@ end
 
 --- Returns list of all active trade offers known to player, including various metadata or text rendering.
 --
--- @return [table{faction = component<faction>, factionText = string, station = component<station>, stationText = string,
+-- @return [table{faction = component<faction>, factionText = string, factionName = string, station = component<station>, stationText = string,
 --     sector = component<sector>, sectorText = string, distance = number, distanceText = string, ware = component<ware>, wareText = string,
 --     type = 1|2|nil, typeText = string, price = number, priceText = string, markup = number, markupText = string,
 --     amount = number, amountText = string}]  List of active trade offers.
@@ -693,8 +693,8 @@ function m.getTradeOffers()
                         offers,
                         {
                             faction = stationOwner,
-                            -- @TODO: Consider using dedicated factionIcon property in order to be able to sort by actual faction name.
                             factionText = string.format("\27[%s]", stationOwnerIcon),
+                            factionName = trade.factionname,
                             station = trade.station,
                             stationText = trade.stationname,
                             sector = sector,
