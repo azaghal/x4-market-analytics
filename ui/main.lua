@@ -259,15 +259,15 @@ function m.createFrame()
     local bottomPadding = Helper.frameBorder + Helper.borderSize
 
     local width = Helper.viewWidth - leftPadding - rightPadding
-    local height = Helper.viewHeight - leftPadding - rightPadding
+    local height = Helper.viewHeight - topPadding - bottomPadding
 
     local frame = Helper.createFrameHandle(
         m.menu,
         {
             x = leftPadding,
             y = topPadding,
-            width = Helper.viewWidth - leftPadding - rightPadding,
-            height = Helper.viewHeight - topPadding - bottomPadding,
+            width = width,
+            height = height,
             layer = m.menuConfig.infoFrameLayer2,
             standardButtons = {},
         }
@@ -346,7 +346,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
 
     -- Pagination controls
     -- ===================
-    local row = ftable:addRow(true, { fixed = true })
+    row = ftable:addRow(true, { fixed = true })
 
     row[11]:createButton():setText("\27[widget_arrow_left_01] Prev", { halign = "center" })
     row[11].handlers.onClick = function()
@@ -363,7 +363,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
         -- Show just the current page when starting the edit.
         C.SetEditBoxText(m.widgets.currentPage.id, tostring(m.state.currentPage))
     end
-    row[12].handlers.onEditBoxDeactivated = function(_, text, textChanged)
+    row[12].handlers.onEditBoxDeactivated = function(_, text, _)
         -- Allow menu refresh at this point.
         m.menu.noupdate = nil
 
@@ -417,7 +417,7 @@ function m.createFilterControls(ftable)
     end
 
     -- Sector filter
-    local filterText = m.getFilterText(m.filter.mapSearchSectors)
+    filterText = m.getFilterText(m.filter.mapSearchSectors)
     row[3]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[3].handlers.onClick = function()
         local options = {}
@@ -444,14 +444,14 @@ function m.createFilterControls(ftable)
     end
 
     -- Distance filter
-    local options = {}
+    local distanceOptions = {}
     for range = 0, m.config.maxDistanceFilterLimit do
         -- Extra whitespace at end of text helps align the text with text in data rows.
-        table.insert(options, { id = tostring(range), text = tostring(range) .. "j ", icon = "", displayremoveoption = false, align = "right" })
+        table.insert(distanceOptions, { id = tostring(range), text = tostring(range) .. "j ", icon = "", displayremoveoption = false, align = "right" })
     end
 
     row[4]:createDropDown(
-        options,
+        distanceOptions,
         {
             startOption = tostring(m.state.filters.maxDistance),
             height = Helper.standardButtonHeight,
@@ -468,11 +468,11 @@ function m.createFilterControls(ftable)
     end
 
     -- Ware filter
-    local filterText = m.getFilterText(m.filter.mapSearchWares)
+    filterText = m.getFilterText(m.filter.mapSearchWares)
     row[5]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[5].handlers.onClick = function()
         local options = {}
-        local setting, filteredWares = m.menu.getTradeWareFilter(true)
+        local _, filteredWares = m.menu.getTradeWareFilter(true)
         for _, ware in pairs(m.menu.economyWares) do
             local state = false
             for _, filteredWare in ipairs(filteredWares) do
@@ -604,7 +604,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 end
                 m.state.sortParameters = newSortParameters
             else
-                parameter = { property = column.sortProperty, ascending = true }
+                local parameter = { property = column.sortProperty, ascending = true }
                 table.insert(m.state.sortParameters, parameter)
             end
 
@@ -628,7 +628,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
     m.createFilterControls(ftable)
 
     -- Separator line.
-    local row = ftable:addRow(false)
+    row = ftable:addRow(false)
     row[1]:setColSpan(9):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
 
     return ftable
@@ -900,15 +900,15 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
     local row = ftable:addRow(true, { fixed = true })
     row[1]:createCheckBox(allOptionsEnabled, { height = m.menuConfig.mapRowHeight })
     row[1].handlers.onClick = function(_, state)
-        for _, row in ipairs(ftable.rows) do
-            C.SetCheckBoxChecked2(row[1].id, state, true)
+        for _, checkboxRow in ipairs(ftable.rows) do
+            C.SetCheckBoxChecked2(checkboxRow[1].id, state, true)
         end
         callback(nil, state, options)
     end
     row[2]:createText(title, Helper.headerRowCenteredProperties)
 
     for _, option in ipairs(options) do
-        local row = ftable:addRow(true)
+        row = ftable:addRow(true)
         row[1]:createCheckBox(option.state, { height = Helper.standardTextHeight, width = Helper.standardTextHeight })
         row[1].handlers.onClick = function(_, state) callback(option.id, state) end
         row[2]:createText(option.text)
@@ -1150,7 +1150,7 @@ end
 -- @return bool true if the offer satisfies the filter, false otherwise.
 --
 function m.filter.mapSearchWares(offer)
-    local setting, wares = m.menu.getTradeWareFilter(true)
+    local _, wares = m.menu.getTradeWareFilter(true)
 
     if #wares == 0 then
         return true
