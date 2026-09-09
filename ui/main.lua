@@ -134,6 +134,12 @@ function m.init()
     m.menu = Helper.getMenu("MapMenu")
     m.menuConfig = m.menu.uix_getConfig()
 
+    m.cache = {
+        factions = {},
+        volumeInfo = {},
+        wareVolume = {},
+    }
+
     m.state = {
         currentPage = 1,
         sortParameters = { { property = "factionText", ascending = true } },
@@ -173,11 +179,13 @@ function m.init()
     m.original.setSectorFilter = m.menu.setSectorFilter
     m.original.filterTradeWares = m.menu.filterTradeWares
     m.original.filterTradeVolume = m.menu.filterTradeVolume
+    m.original.filterTradeRelation = m.menu.filterTradeRelation
 
     -- Override original functions with custom implementation.
     m.menu.setSectorFilter = m.override.setSectorFilter
     m.menu.filterTradeWares = m.override.filterTradeWares
-    -- m.menu.filterTradeVolume = m.override.filterTradeVolume
+    m.menu.filterTradeVolume = m.override.filterTradeVolume
+    m.menu.filterTradeRelation = m.override.filterTradeRelation
 end
 
 
@@ -736,6 +744,7 @@ function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
     end
 
     if forceFilter then
+        m.updateCache()
         m.state.filteredOffers = {}
         for _, offer in ipairs(m.state.offers) do
             local passed = true
@@ -979,58 +988,11 @@ end
 -- @return { name = string, text = string, mouseOverText = string, nextVolume = number }|nil Trade volume information/representation.
 --
 function m.getTradeVolumeInfo(volume)
-    m.state.volumeInfoCache = m.state.volumeInfo or {}
-    local volumeInfo = m.state.volumeInfoCache[volume]
-
-    -- Invalidate the cache.
-    -- @NOTE: Why the hell can this change over time?
-    --     Initial attempts to cache the information during initialisation have failed - mainly because the returned threshold values seems to change once the
-    --     game has fully loaded. Volume parameter probably depends on current state of explored/known universe and available trades or maybe available/visible
-    --     ship sizes.
-    if not volumeInfo then
-        local volumeParameter = C.GetMapTradeVolumeParameter()
-        local volumeIcon = string.format("\27[%s]", ffi.string(volumeParameter.icon))
-        local volumeColorActive = Helper.convertColorToText({
-            r = volumeParameter.color.red,
-            g = volumeParameter.color.green,
-            b = volumeParameter.color.blue,
-            a = volumeParameter.color.alpha
-        })
-        local volumeColorInactive = Helper.convertColorToText(Color["text_inactive"])
-
-        m.state.volumeInfoCache = {
-            [0] = {
-                name = "none",
-                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 3), volumeColorActive, string.rep(volumeIcon, 0)),
-                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 8359)),
-                volume = 0,
-                nextVolume = volumeParameter.volume_s,
-            },
-            [volumeParameter.volume_s] = {
-                name = "small",
-                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 2), volumeColorActive, string.rep(volumeIcon, 1)),
-                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2853)),
-                volume = volumeParameter.volume_s,
-                nextVolume = volumeParameter.volume_m,
-            },
-            [volumeParameter.volume_m] = {
-                name = "medium",
-                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 1), volumeColorActive, string.rep(volumeIcon, 2)),
-                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2854)),
-                volume = volumeParameter.volume_m,
-                nextVolume = volumeParameter.volume_l,
-            },
-            [volumeParameter.volume_l] = {
-                name = "large",
-                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 0), volumeColorActive, string.rep(volumeIcon, 3)),
-                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2855)),
-                volume = volumeParameter.volume_l,
-                nextVolume = 0,
-            },
-        }
+    if not m.cache.volumeInfo[volume] then
+        m.updateCache("volumeInfo")
     end
 
-    return m.state.volumeInfoCache[volume] or nil
+    return m.cache.volumeInfo[volume] or nil
 end
 
 
@@ -1041,17 +1003,11 @@ end
 -- @return number Ware volume.
 --
 function m.getWareVolume(ware)
-    -- @NOTE: Cannot populate during m.init (ends up with no wares)
-    --     After the game is loaded, the C.GetNumWares() invocation in vanilla code that populates the m.menu.economyWares seems to return 0, so probably some
-    --     part of game engine is still not fully initialised.
-    if not m.state.wareVolume then
-        m.state.wareVolume = {}
-        for _, ware in pairs(m.menu.economyWares) do
-            m.state.wareVolume[ware] = GetWareData(ware, "volume")
-        end
+    if not m.cache.wareVolume[ware] then
+        m.updateCache("wareVolume")
     end
 
-    return m.state.wareVolume[ware]
+    return m.cache.wareVolume[ware]
 end
 
 
@@ -1086,6 +1042,81 @@ function m.setSectorFilter(id, state, options)
     m.menu.refreshMainFrame = true
 end
 
+
+--- Updates miscellaneous cached data.
+--
+-- Trade offers are _explicitly_ and _purposefully_ not covered by this function.
+--
+-- @param cache string|nil Name of cache to update. If nil, all caches will be updated instead.
+--
+function m.updateCache(cache)
+    if cache == "factions" or cache == nil then
+        m.cache.factions = {}
+        local factions = GetLibrary("factions")
+        for _, faction in ipairs(factions) do
+            faction.isenemy = GetFactionData(faction.id, "isenemy")
+            m.cache.factions[faction.id] = faction
+        end
+
+    -- @NOTE: Cannot populate during m.init (volume thresholds seem dynamic)
+    --     Initial attempts to cache the information during initialisation have failed - mainly because the returned threshold values seems to change once the
+    --     game has fully loaded. Volume parameter probably depends on current state of explored/known universe and available trades or maybe available/visible
+    --     ship sizes.
+    elseif cache == "volumeInfo" or cache == nil then
+        local volumeParameter = C.GetMapTradeVolumeParameter()
+        local volumeIcon = string.format("\27[%s]", ffi.string(volumeParameter.icon))
+        local volumeColorActive = Helper.convertColorToText({
+            r = volumeParameter.color.red,
+            g = volumeParameter.color.green,
+            b = volumeParameter.color.blue,
+            a = volumeParameter.color.alpha
+        })
+        local volumeColorInactive = Helper.convertColorToText(Color["text_inactive"])
+
+        m.cache.volumeInfo = {
+            [0] = {
+                name = "none",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 3), volumeColorActive, string.rep(volumeIcon, 0)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 8359)),
+                volume = 0,
+                nextVolume = volumeParameter.volume_s,
+            },
+            [volumeParameter.volume_s] = {
+                name = "small",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 2), volumeColorActive, string.rep(volumeIcon, 1)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2853)),
+                volume = volumeParameter.volume_s,
+                nextVolume = volumeParameter.volume_m,
+            },
+            [volumeParameter.volume_m] = {
+                name = "medium",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 1), volumeColorActive, string.rep(volumeIcon, 2)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2854)),
+                volume = volumeParameter.volume_m,
+                nextVolume = volumeParameter.volume_l,
+            },
+            [volumeParameter.volume_l] = {
+                name = "large",
+                text = string.format("%s%s%s%s", volumeColorInactive, string.rep(volumeIcon, 0), volumeColorActive, string.rep(volumeIcon, 3)),
+                mouseOverText = string.format("%s: %s", ReadText(1001, 8357), ReadText(1001, 2855)),
+                volume = volumeParameter.volume_l,
+                nextVolume = 0,
+            },
+        }
+
+    -- @NOTE: Cannot populate during m.init (ends up with no wares)
+    --     After the game is loaded, the C.GetNumWares() invocation in vanilla code that populates the m.menu.economyWares seems to return 0, so probably some
+    --     part of game engine is still not fully initialised.
+    elseif cache == "wareVolume" or cache == nil then
+        m.cache.wareVolume = {}
+        for _, ware in pairs(m.menu.economyWares) do
+            m.cache.wareVolume[ware] = GetWareData(ware, "volume")
+        end
+
+    else
+        _debug("No such cache: %s", cache)
+    end
+end
 
 
 -- Trade offer filters
@@ -1243,6 +1274,19 @@ function m.filter.mapTradeVolume(offer)
 end
 
 
+--- Filters offer by map trade relation (show enemy trades option).
+--
+-- @param offer {*} Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.mapRelation(offer)
+    local showEnemyOffers = m.menu.getFilterOption("trade_relation_enemy", m.menuConfig.layersettings.layer_trade[6].savegame)
+
+    return showEnemyOffers and true or not m.cache.factions[offer.faction].isenemy
+end
+
+
 -- Override functions
 -- ==================
 
@@ -1264,6 +1308,19 @@ end
 --
 function m.override.filterTradeWares(...)
     m.original.filterTradeWares(...)
+    if m.state.filteredOffers then
+        m.updateOffers(m.state.pageSize, false, true, true)
+    end
+    if m.menu.searchTableMode == "marketanalytics" then
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Update offers and redraw the market analytics when player changes the map menu trade relations filter (show enemy trades).
+--
+function m.override.filterTradeRelation(...)
+    m.original.filterTradeRelation(...)
     if m.state.filteredOffers then
         m.updateOffers(m.state.pageSize, false, true, true)
     end
