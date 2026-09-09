@@ -140,6 +140,7 @@ function m.init()
         wareVolume = {},
     }
 
+    local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
     m.state = {
         currentPage = 1,
         sortParameters = { { property = "factionName", ascending = true } },
@@ -150,6 +151,7 @@ function m.init()
             maxDistance = m.config.maxDistanceFilterLimit,
             type = 0,
         },
+        referenceSector = ConvertStringToLuaID(tostring(playerSector)),
     }
 
     -- Make parameters accessible by sort property.
@@ -331,10 +333,24 @@ function m.createControlsTable(frame, offsetX, offsetY)
     -- Miscellanous controls
     -- =====================
     local row = ftable:addRow(true, { fixed = true })
+    row[1]:setColSpan(3):createButton():setText(GetComponentData(m.state.referenceSector, "name"), { halign = "center" })
+    local pickerX = row.table.frame.properties.x + row[1]:getOffsetX()
+    local pickerY = ftable.frame.properties.y + ftable.properties.y + ftable:getVisibleHeight()
+    row[1].handlers.onClick = function()
+        local options = {}
+        local clusters = GetClusters(true) or {}
+        for _, cluster in ipairs(clusters) do
+            local sectors = GetSectors(cluster)
+            for _, sector in ipairs(sectors) do
+                table.insert(options, { id = sector, text = GetComponentData(sector, "name"), state = tostring(sector) == tostring(m.state.referenceSector) })
+            end
+        end
+        table.sort(options, function(a, b) return a.text < b.text end)
+        m.createValuePicker(pickerX, pickerY, row[1]:setColSpan(3):getWidth(), "Select Reference Sector", options, m.setReferenceSector)
+    end
 
     row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
     m.widgets.offersAge = row[12]
-
     row[13]:createButton():setText("Refresh", { halign = "center" })
     row[13].handlers.onClick = function()
         m.updateOffers(m.state.pageSize, true, false, false)
@@ -679,8 +695,7 @@ function m.getTradeOffers()
         for _, sector in ipairs(sectors) do
             local stations = GetContainedStations(sector, true) or {}
             local sectorName = GetComponentData(sector, "name")
-            local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
-            local jumpDistance = FindJumpRoute(ConvertStringTo64Bit(tostring(playerSector)), sector)
+            local jumpDistance = FindJumpRoute(m.state.referenceSector, sector)
             for _, station in ipairs(stations) do
                 local trades = GetTradeList(station) or {}
                 local stationOwner = GetComponentData(station, "owner")
@@ -919,6 +934,60 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
 end
 
 
+--- Creates context menu for picking a single option.
+--
+-- @param x number Horisontal position where the menu should be shown (top-left corner).
+-- @param y number Vertical position where the menu should be shown (top-left corner).
+-- @param width number Total menu width.
+-- @param title string Menu title to show in menu header.
+-- @param options [{ id = string, text = string, state = bool }] List of possible options. State can be used to denote currently active option(s).
+-- @param callback function(id = string) Callback function to invoke on selection.
+--
+function m.createValuePicker(x, y, width, title, options, callback)
+    local frame = Helper.createFrameHandle(
+        m.menu,
+        {
+            x = x,
+            y = y,
+            width = width,
+            height = Helper.viewHeight - y - Helper.frameBorder,
+            layer = m.menuConfig.contextFrameLayer,
+            standardButtons = { close = true },
+            closeOnUnhandledClick = true,
+        }
+    )
+    local ftable = frame:addTable(
+        1,
+        {
+            tabOrder = 1,
+            highlightMode = "off",
+            backgroundID = "solid",
+            backgroundColor = Color["frame_background_black"],
+            reserveScrollBar = false,
+            x = Helper.borderSize,
+            y = Helper.borderSize,
+        }
+    )
+
+    local row = ftable:addRow(true, { fixed = true })
+    row[1]:createText(title, Helper.headerRowCenteredProperties)
+
+    for _, option in ipairs(options) do
+        row = ftable:addRow(true, { fixed = true })
+        row[1]:createButton({ bgColor = option.state and Color["button_highlight_default"] or Color["button_background_default"] })
+        row[1]:setText(option.text, { halign = "center" })
+        row[1].handlers.onClick = function()
+            callback(option.id)
+            m.menu.closeContextMenu()
+        end
+    end
+
+    m.menu.contextMenuMode = "marketanalytics-valuepicker"
+    m.menu.contextFrame = frame
+    m.menu.contextFrame:display()
+end
+
+
 --- Sets filter for trade offers based on factions.
 --
 -- @param id string|nil Faction identifier (as returned by GetLibrary("factions")). If nil, state is applied against all factions defined via passed-in options.
@@ -1112,6 +1181,17 @@ function m.updateCache(cache)
     else
         _debug("No such cache: %s", cache)
     end
+end
+
+
+--- Sets the reference sector for calculating trade offer distances.
+--
+-- @param sector component<sector> Sector to set as reference.
+--
+function m.setReferenceSector(sector)
+    m.state.referenceSector = sector
+    m.updateOffers(m.state.pageSize, true, false, false)
+    m.menu.refreshInfoFrame2()
 end
 
 
