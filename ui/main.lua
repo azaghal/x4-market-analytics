@@ -409,6 +409,34 @@ function m.createFilterControls(ftable)
         m.createMultiValuePicker(x, y, 280, "Select Factions", options, m.setFactionFilter)
     end
 
+    -- Sector filter
+    local filterText = m.getFilterText(m.filter.mapSearchSectors)
+    row[3]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
+    row[3].handlers.onClick = function()
+        local options = {}
+        local filteredSectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
+        local clusters = GetClusters(true) or {}
+        for _, cluster in ipairs(clusters) do
+            local sectors = GetSectors(cluster)
+            for _, sector in ipairs(sectors) do
+                local state = false
+                for _, filteredSector in ipairs(filteredSectors) do
+                    if tostring(sector) == filteredSector then
+                        state = true
+                        break
+                    end
+                end
+                table.insert(options, { id = tostring(sector), text = GetComponentData(sector, "name"), state = state })
+            end
+        end
+
+        table.sort(options, function(a, b) return a.text < b.text end)
+        local x, y = GetLocalMousePosition()
+        x = x + Helper.viewWidth / 2
+        y = Helper.viewHeight / 2 - y
+        m.createMultiValuePicker(x, y, 280, "Select Sectors", options, m.setSectorFilter)
+    end
+
     -- Distance filter
     local options = {}
     for range = 0, m.config.maxDistanceFilterLimit do
@@ -1027,6 +1055,39 @@ function m.getWareVolume(ware)
 end
 
 
+--- Sets sector filter (updates the map sector search property).
+--
+-- @param id string|nil Sector identifier. If nil, state is applied against all sectors defined via passed-in options.
+-- @param state bool Whether trade offers for this sector should be shown or not.
+-- @param options [{id = string, text = string, state = bool}] Complete list of possible sector options.
+--
+function m.setSectorFilter(id, state, options)
+    local sectors = id and {{id = id}} or options
+    local mapFilteredSectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
+
+    for _, sector in ipairs(sectors) do
+        local found = false
+        for i, filteredSector in ipairs(mapFilteredSectors) do
+            if sector.id == filteredSector then
+                found = i
+                break
+            end
+        end
+
+        if state and not found then
+            table.insert(mapFilteredSectors, sector.id)
+        elseif not state and found then
+            table.remove(mapFilteredSectors, found)
+        end
+    end
+
+    m.menu.setSectorFilter()
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshMainFrame = true
+end
+
+
+
 -- Trade offer filters
 -- ===================
 
@@ -1125,8 +1186,18 @@ function m.getFilterText(filter)
         for _, ware in ipairs(wares) do
             table.insert(names, GetWareData(ware, "name"))
         end
-
+        table.sort(names)
         text = #names > 0 and table.concat(names, ", ") or "Any"
+
+    elseif filter == m.filter.mapSearchSectors then
+        local sectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
+        local names = {}
+        for _, sector in ipairs(sectors) do
+            table.insert(names, GetComponentData(ConvertStringToLuaID(sector), "name"))
+        end
+        table.sort(names)
+        text = #names > 0 and table.concat(names, ", ") or "Any"
+
     end
 
     return text
