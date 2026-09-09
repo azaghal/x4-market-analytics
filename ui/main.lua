@@ -152,10 +152,8 @@ function m.init()
         },
     }
 
-    -- @TODO: Candidate for deduplicatioin or simplification
-    --     This pattern is used in a couple of different places in the code, and it might be useful to deduplicate it. Another thing that could be considered is
-    --     getting rid of this mapping altogether and just using iteration over m.state.sortParameters if performance hit is minimal.
-    -- Make parameters accessible by referencing the property, thus avoiding having to traverse the list all the time.
+    -- Make parameters accessible by sort property.
+    -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
     m.state.sortParametersBy = {}
     for priority, parameter in ipairs(m.state.sortParameters) do
         -- Do not show column sorting priority when sorting by a singular player-selected column.
@@ -608,7 +606,8 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 table.insert(m.state.sortParameters, parameter)
             end
 
-            -- @TODO: Candidate for deduplication or simplification.
+            -- Make parameters accessible by sort property, and include priority for rendering.
+            -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
             m.state.sortParametersBy = {}
             for priority, parameter in ipairs(m.state.sortParameters) do
                 -- Do not show column sorting priority when sorting by a singular player-selected column.
