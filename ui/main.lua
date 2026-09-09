@@ -398,6 +398,7 @@ function m.createFilterControls(ftable)
     -- Factions filter
     local filterText = m.getFilterText(m.filter.factions)
     row[1]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
+    local pickerVerticalPosition = ftable.frame.properties.y + ftable.properties.y + ftable:getVisibleHeight()
     row[1].handlers.onClick = function()
         local factions = GetLibrary("factions")
         local options = {}
@@ -410,11 +411,9 @@ function m.createFilterControls(ftable)
         -- @TODO: This sorts by the faction icon instead of the name, which may not be expected by the player.
         table.sort(options, function(a, b) return a.text < b.text end)
 
-        -- @TODO: May get nil when using joystick mode.
-        local x, y = GetLocalMousePosition()
-        x = x + Helper.viewWidth / 2
-        y = Helper.viewHeight / 2 - y
-        m.createMultiValuePicker(x, y, 280, "Select Factions", options, m.setFactionFilter)
+        local x = row.table.frame.properties.x + row[1]:getOffsetX()
+        local y = pickerVerticalPosition
+        m.createMultiValuePicker(x, y, row[1]:getWidth() + row[2]:getWidth(), "Select Factions", options, m.setFactionFilter)
     end
 
     -- Sector filter
@@ -439,10 +438,9 @@ function m.createFilterControls(ftable)
         end
 
         table.sort(options, function(a, b) return a.text < b.text end)
-        local x, y = GetLocalMousePosition()
-        x = x + Helper.viewWidth / 2
-        y = Helper.viewHeight / 2 - y
-        m.createMultiValuePicker(x, y, 280, "Select Sectors", options, m.setSectorFilter)
+        local x = row.table.frame.properties.x + row[3]:getOffsetX()
+        local y = pickerVerticalPosition
+        m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, m.setSectorFilter)
     end
 
     -- Distance filter
@@ -487,10 +485,9 @@ function m.createFilterControls(ftable)
         end
 
         table.sort(options, function(a, b) return a.text < b.text end)
-        local x, y = GetLocalMousePosition()
-        x = x + Helper.viewWidth / 2
-        y = Helper.viewHeight / 2 - y
-        m.createMultiValuePicker(x, y, 280, "Select Wares", options, m.setWareFilter)
+        local x = row.table.frame.properties.x + row[5]:getOffsetX()
+        local y = pickerVerticalPosition
+        m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, m.setWareFilter)
     end
 
     -- Offer type filter
@@ -893,8 +890,8 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
             backgroundID = "solid",
             backgroundColor = Color["frame_background_black"],
             reserveScrollBar = false,
-            x = offsetX,
-            y = offsetY,
+            x = Helper.borderSize,
+            y = Helper.borderSize,
         }
     )
 
