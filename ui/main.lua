@@ -687,7 +687,8 @@ function m.renderOffers(ftable)
         local offer = m.state.filteredOffers[index]
         local row = ftable:addRow(true, { fixed = true })
         row[1]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
-        row[1].handlers.onClick = function() m.toggleFactionFilter(offer.faction) end
+        row[1].handlers.onClick = function() m.setFactionFilter(offer.faction, true) end
+        row[1].handlers.onRightClick = function() m.setFactionFilter(offer.faction, false) end
 
         row[2]:createText(offer.stationText)
 
@@ -697,7 +698,8 @@ function m.renderOffers(ftable)
         row[4]:createText(offer.distanceText, { halign = "right" })
 
         row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.wareText)
-        row[5].handlers.onClick = function() m.toggleWareFilter(offer.ware) end
+        row[5].handlers.onClick = function() m.setWareFilter(offer.ware, true) end
+        row[5].handlers.onRightClick = function() m.setWareFilter(offer.ware, false) end
 
         row[6]:createText(offer.typeText)
         row[7]:createText(offer.priceText, { halign = "right" })
@@ -1046,15 +1048,6 @@ function m.setFactionFilter(id, state, options)
 end
 
 
---- Toggles faction in the faction filter.
---
--- @param id string Faction identifier (as returned by GetLibrary("factions")).
---
-function m.toggleFactionFilter(id)
-    m.setFactionFilter(id, not m.state.filters.factions[id])
-end
-
-
 --- Sets filter for trade offers based on wares filtered via map menu.
 --
 -- Syncs the changes into map search.
@@ -1085,25 +1078,6 @@ function m.setWareFilter(id, state, options)
 
     m.updateOffers(m.state.pageSize, false, true, true)
     m.menu.refreshMainFrame = true
-end
-
-
---- Toggles ware in the ware filter.
---
--- @param id string Ware identifier (as returned by GetLibrary("wares")).
---
-function m.toggleWareFilter(id)
-    local setting, wares = m.menu.getTradeWareFilter(true)
-
-    local state = false
-    for _, ware in ipairs(wares) do
-        if ware == id then
-            state = true
-            break
-        end
-    end
-
-    m.setWareFilter(id, not state)
 end
 
 
