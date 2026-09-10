@@ -455,23 +455,7 @@ function m.createFilterControls(ftable)
     filterText = m.getFilterText(m.filter.mapSearchSectors)
     row[3]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[3].handlers.onClick = function()
-        local options = {}
-        local filteredSectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
-        local clusters = GetClusters(true) or {}
-        for _, cluster in ipairs(clusters) do
-            local sectors = GetSectors(cluster)
-            for _, sector in ipairs(sectors) do
-                local state = false
-                for _, filteredSector in ipairs(filteredSectors) do
-                    if tostring(sector) == filteredSector then
-                        state = true
-                        break
-                    end
-                end
-                table.insert(options, { id = tostring(sector), text = GetComponentData(sector, "name"), state = state })
-            end
-        end
-
+        local options = m.generateSectorFilterOptions()
         table.sort(options, function(a, b) return a.text < b.text end)
         local x = row.table.frame.properties.x + row[3]:getOffsetX()
         local y = pickerVerticalPosition
@@ -693,8 +677,8 @@ function m.renderOffers(ftable)
         row[2]:createText(offer.stationText)
 
         row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
-        row[3].handlers.onClick = function() m.setSectorFilter(tostring(offer.sector), true) end
-        row[3].handlers.onRightClick = function() m.setSectorFilter(tostring(offer.sector), false) end
+        row[3].handlers.onClick = function() m.setSectorFilter(offer.sector, true) end
+        row[3].handlers.onRightClick = function() m.setSectorFilter(offer.sector, false) end
 
         row[4]:createText(offer.distanceText, { halign = "right" })
 
@@ -1114,27 +1098,54 @@ function m.getWareVolume(ware)
 end
 
 
+--- Generates sector filter options based on current sector filter state.
+--
+function m.generateSectorFilterOptions()
+    local options = {}
+    local filteredSectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
+    local clusters = GetClusters(true) or {}
+    for _, cluster in ipairs(clusters) do
+        local sectors = GetSectors(cluster)
+        for _, sector in ipairs(sectors) do
+            local state = false
+            for _, filteredSector in ipairs(filteredSectors) do
+                if tostring(sector) == filteredSector then
+                    state = true
+                    break
+                end
+            end
+            table.insert(options, { id = sector, text = GetComponentData(sector, "name"), state = state })
+        end
+    end
+
+    return options
+end
+
+
 --- Sets sector filter (updates the map sector search property).
 --
--- @param id string|nil Sector identifier. If nil, state is applied against all sectors defined via passed-in options.
+-- @param sector component<sector>|nil Sector component. If nil, state is applied against all sectors defined via passed-in options.
 -- @param state bool Whether trade offers for this sector should be shown or not.
--- @param options [{id = string, text = string, state = bool}] Complete list of possible sector options.
+-- @param options [{id = component<sector>, text = string, state = bool}]|nil List of possible sector options to use. Required if sector in nil.
 --
-function m.setSectorFilter(id, state, options)
-    local sectors = id and {{id = id}} or options
+function m.setSectorFilter(sector, state, options)
+    -- Prepare for iterating over affected sector options only.
+    local options = sector and {{id = sector}} or options
+
+    -- Contains list of sector components converted to strings.
     local mapFilteredSectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
 
-    for _, sector in ipairs(sectors) do
+    for _, option in ipairs(options) do
         local found = false
         for i, filteredSector in ipairs(mapFilteredSectors) do
-            if sector.id == filteredSector then
+            if tostring(option.id) == filteredSector then
                 found = i
                 break
             end
         end
 
         if state and not found then
-            table.insert(mapFilteredSectors, sector.id)
+            table.insert(mapFilteredSectors, tostring(option.id))
         elseif not state and found then
             table.remove(mapFilteredSectors, found)
         end
