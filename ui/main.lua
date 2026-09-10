@@ -693,7 +693,8 @@ function m.renderOffers(ftable)
         row[2]:createText(offer.stationText)
 
         row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
-        row[3].handlers.onClick = function() m.setReferenceSector(offer.sector) end
+        row[3].handlers.onClick = function() m.setSectorFilter(tostring(offer.sector), true) end
+        row[3].handlers.onRightClick = function() m.setSectorFilter(tostring(offer.sector), false) end
 
         row[4]:createText(offer.distanceText, { halign = "right" })
 
