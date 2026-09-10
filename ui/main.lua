@@ -134,11 +134,35 @@ function m.init()
     m.menu = Helper.getMenu("MapMenu")
     m.menuConfig = m.menu.uix_getConfig()
 
-    m.cache = {
-        factions = {},
-        volumeInfo = {},
-        wareVolume = {},
-    }
+    m.initData()
+
+    -- UI Extensions and HUD events.
+    m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
+    m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
+
+    -- Store references to original functions.
+    m.original.setSectorFilter = m.menu.setSectorFilter
+    m.original.filterTradeWares = m.menu.filterTradeWares
+    m.original.filterTradeVolume = m.menu.filterTradeVolume
+    m.original.filterTradeRelation = m.menu.filterTradeRelation
+
+    -- Override original functions with custom implementation.
+    m.menu.setSectorFilter = m.override.setSectorFilter
+    m.menu.filterTradeWares = m.override.filterTradeWares
+    m.menu.filterTradeVolume = m.override.filterTradeVolume
+    m.menu.filterTradeRelation = m.override.filterTradeRelation
+end
+
+
+--- Initialises various data structures, states, and caches.
+--
+function m.initData()
+    -- If function is invoked during loading, the necessary data is still not available, schedule the call once data has been fully loaded instead.
+    -- @NOTE: This is more of a hack, but so far it seems to work fine.
+    if C.GetPlayerID() == 0 then
+        registerForEvent("gameLoadingDone", getElement("Scene.UIContract"), m.initData)
+        return
+    end
 
     local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
     m.state = {
@@ -172,20 +196,12 @@ function m.init()
         column.width = column.fixedWidth and m.calculateRequiredColumnTextWidth(column.title, column.dataSample) or nil
     end
 
-    m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
-    m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
-
-    -- Store references to original functions.
-    m.original.setSectorFilter = m.menu.setSectorFilter
-    m.original.filterTradeWares = m.menu.filterTradeWares
-    m.original.filterTradeVolume = m.menu.filterTradeVolume
-    m.original.filterTradeRelation = m.menu.filterTradeRelation
-
-    -- Override original functions with custom implementation.
-    m.menu.setSectorFilter = m.override.setSectorFilter
-    m.menu.filterTradeWares = m.override.filterTradeWares
-    m.menu.filterTradeVolume = m.override.filterTradeVolume
-    m.menu.filterTradeRelation = m.override.filterTradeRelation
+    m.cache = {
+        factions = {},
+        volumeInfo = {},
+        wareVolume = {},
+    }
+    m.updateCache()
 end
 
 
@@ -1169,12 +1185,10 @@ function m.updateCache(cache)
             faction.isenemy = GetFactionData(faction.id, "isenemy")
             m.cache.factions[faction.id] = faction
         end
+    end
 
-    -- @NOTE: Cannot populate during m.init (volume thresholds seem dynamic)
-    --     Initial attempts to cache the information during initialisation have failed - mainly because the returned threshold values seems to change once the
-    --     game has fully loaded. Volume parameter probably depends on current state of explored/known universe and available trades or maybe available/visible
-    --     ship sizes.
-    elseif cache == "volumeInfo" or cache == nil then
+    -- @NOTE: Requires the game to finish loading.
+    if cache == "volumeInfo" or cache == nil then
         local volumeParameter = C.GetMapTradeVolumeParameter()
         local volumeIcon = string.format("\27[%s]", ffi.string(volumeParameter.icon))
         local volumeColorActive = Helper.convertColorToText({
@@ -1215,18 +1229,15 @@ function m.updateCache(cache)
                 nextVolume = 0,
             },
         }
+    end
 
-    -- @NOTE: Cannot populate during m.init (ends up with no wares)
-    --     After the game is loaded, the C.GetNumWares() invocation in vanilla code that populates the m.menu.economyWares seems to return 0, so probably some
-    --     part of game engine is still not fully initialised.
-    elseif cache == "wareVolume" or cache == nil then
+    -- @NOTE: Requires the game to finish loading.
+    if cache == "wareVolume" or cache == nil then
+        m.menu.prepareEconomyWares()
         m.cache.wareVolume = {}
         for _, ware in pairs(m.menu.economyWares) do
             m.cache.wareVolume[ware] = GetWareData(ware, "volume")
         end
-
-    else
-        _debug("No such cache: %s", cache)
     end
 end
 
