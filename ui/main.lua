@@ -1042,32 +1042,35 @@ function m.setWareFilter(settings)
     local mapFilterSetting, mapFilterWares = m.menu.getTradeWareFilter(true)
 
     if not settings then
-        -- @NOTE: Inefficient but visually consistent
-        --     Instead setting the filter option one by one, it is possible to send a list of values instead via:
+        -- @NOTE: Workaround for setFilterOption closing context menu when passing-in multiple wares
         --
-        --         m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, {})
+        --     Vanilla code closes the context menu if the setFilterOption function is invoked by passing-in a { wareid = _ } table. In context of this mod,
+        --     this can end up with the multi-value picker context menu getting closed even when it should remain open, so just "suppress" the closeContextMenu
+        --     function invocation by temporarily turning it into a no-op.
         --
-        --     Unfortunately, vanilla code closes the context menu if invoked in this manner, which is not what we want here - we want the context menu (the
-        --     multi-value picker) to remain open.
-        for _ = 1, #mapFilterWares do
-            m.menu.removeFilterOption(mapFilterSetting, mapFilterSetting.id, 1)
-        end
+        --     There is a couple of alternatives to this, but this one might be the least troublesome hack (opinions may change). One way is to set the wares
+        --     one-by-one, but this creates a noticable delay/stutter in UI when a lot of wares are affected by the change. Second option is operating directly
+        --     on the __CORE_DETAILMONITOR_MAPFILTER_SAVE["trade_wares"] table and invoking the mapFilterSetting.callback(mapFilterSetting), but that
+        --     circumvents the main interface for changing filter options which feels less maintainable over the long run.
+        --
+        --     On another note, it looks like the table handling in vanilla's setFilterOption is specifically hard-coded for use with wares. Nice work,
+        --     Egosoft. :P
+        local originalCloseContextMenu = m.menu.closeContextMenu
+        m.menu.closeContextMenu = function() end
+        -- @NOTE: The passed-in {} table is not meant to be a _list_, but a dictionary where keys are enabled ware IDs (dictionary values do not matter).
+        m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, {})
+        m.menu.closeContextMenu = originalCloseContextMenu
     else
+        local enabledWares = {}
         for _, setting in ipairs(settings) do
-            local found = false
-            for i, ware in ipairs(mapFilterWares) do
-                if ware == setting.id then
-                    found = i
-                    break
-                end
-            end
-
-            if setting.state and not found then
-                m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, setting.id)
-            elseif not setting.state and found then
-                m.menu.removeFilterOption(mapFilterSetting, mapFilterSetting.id, found)
+            if setting.state then
+                enabledWares[setting.id] = true
             end
         end
+        local originalCloseContextMenu = m.menu.closeContextMenu
+        m.menu.closeContextMenu = function() end
+        m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, enabledWares)
+        m.menu.closeContextMenu = originalCloseContextMenu
     end
 
     m.updateOffers(m.state.pageSize, false, true, true)
