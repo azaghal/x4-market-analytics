@@ -34,7 +34,7 @@ m.config = {
         {
             id = "faction",
             index = 1,
-            title = "\27[mapst_factionrelation]",
+            title = "Faction",
             dataSample = "\27[faction_argon]\27[faction_argon]\27[faction_argon]",
             sortProperty = "factionName",
             fixedWidth = true,
@@ -1331,7 +1331,7 @@ function m.getFilterText(filter)
 
     if filter == m.filter.factions then
         if not next(m.state.filters.factions) then
-            text = "\27[mapst_factionrelation]"
+            text = "Any"
         else
             local icons = {}
             for faction, _ in pairs(m.state.filters.factions) do
@@ -1342,7 +1342,7 @@ function m.getFilterText(filter)
             text = table.concat(icons, "")
 
             if C.GetTextWidth(text, Helper.standardFont, Helper.standardFontSize) > m.config.wareColumns[1].width then
-                text = string.format("(%s)", #icons)
+                text = string.format("\27[mapst_factionrelation] (%s)", #icons)
             end
         end
 
