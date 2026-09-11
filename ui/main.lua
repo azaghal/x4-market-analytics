@@ -450,6 +450,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[1]:getWidth() + row[2]:getWidth(), "Select Factions", options, m.setFactionFilter)
     end
+    row[1].handlers.onRightClick = function() m.setFactionFilter(nil) end
 
     -- Sector filter
     filterText = m.getFilterText(m.filter.mapSearchSectors)
@@ -461,6 +462,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, m.setSectorFilter)
     end
+    row[3].handlers.onRightClick = function() m.setSectorFilter(nil) end
 
     -- Distance filter
     local distanceOptions = {}
@@ -508,6 +510,8 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, m.setWareFilter)
     end
+    row[5].handlers.onRightClick = function() m.setWareFilter(nil) end
+
 
     -- Offer type filter
     local options = {
@@ -542,6 +546,12 @@ function m.createFilterControls(ftable)
         local nextVolume = currentVolumeInfo.nextVolume
 
         m.menu.setFilterOption("layer_trade", setting, "trade_volume", nextVolume)
+        m.updateOffers(m.state.pageSize, false, true, true)
+	m.menu.refreshMainFrame = true
+    end
+    row[9].handlers.onRightClick = function()
+        local setting = m.menuConfig.layersettings.layer_trade[4]
+        m.menu.setFilterOption("layer_trade", setting, "trade_volume", 0)
         m.updateOffers(m.state.pageSize, false, true, true)
 	m.menu.refreshMainFrame = true
     end
