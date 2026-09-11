@@ -730,7 +730,7 @@ function m.getTradeOffers()
                 local stationOwnerIcon, stationOwnerColor = m.cache.factions[stationOwner].icon, m.cache.factions[stationOwner].color
                 for _, trade in ipairs(trades) do
                     local averagePrice = GetWareData(trade.ware, "avgprice")
-                    local markup = 1 - trade.price/averagePrice
+                    local markup = trade.price/averagePrice - 1
                     local factionText = string.format("%s\27[%s]", Helper.convertColorToText(stationOwnerColor), stationOwnerIcon)
                     local typeTextColor =
                         trade.isbuyoffer and Helper.convertColorToText(Color["trade_buyoffer"]) or
@@ -761,8 +761,8 @@ function m.getTradeOffers()
                             priceText = priceText,
                             markup = markup,
                             markupText = string.format("%.2f%%", markup * 100),
-                            -- When sorting, markup has different meanings for buys/sells.
-                            markupSort = trade.isbuyoffer and markup or -markup,
+                            -- When sorting, markup has opposite meanings in terms of "quality" for buys/sells.
+                            markupSort = trade.isbuyoffer and -markup or markup,
                             amount = trade.amount,
                             amountText = tostring(trade.amount),
                         }
