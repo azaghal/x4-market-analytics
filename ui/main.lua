@@ -435,16 +435,16 @@ function m.createFilterControls(ftable)
     row[1]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     local pickerVerticalPosition = ftable.frame.properties.y + ftable.properties.y + ftable:getVisibleHeight()
     row[1].handlers.onClick = function()
-        local factions = GetLibrary("factions")
         local options = {}
-        for _, faction in ipairs(factions) do
+        for _, faction in pairs(m.cache.factions) do
             if faction.id ~= "player" then
-                table.insert(options, { id = faction.id, text = faction.name, state = m.state.filters.factions[faction.id] })
+                local text = string.format("%s\27[%s]  %s", Helper.convertColorToText(faction.color), faction.icon, faction.name)
+                -- The "name" property is only used for sorting, it is not required for multi-value picker.
+                table.insert(options, { id = faction.id, name = faction.name, text = text, state = m.state.filters.factions[faction.id] })
             end
         end
 
-        -- @TODO: This sorts by the faction icon instead of the name, which may not be expected by the player.
-        table.sort(options, function(a, b) return a.text < b.text end)
+        table.sort(options, function(a, b) return a.name < b.name end)
 
         local x = row.table.frame.properties.x + row[1]:getOffsetX()
         local y = pickerVerticalPosition
@@ -726,7 +726,7 @@ function m.getTradeOffers()
             for _, station in ipairs(stations) do
                 local trades = GetTradeList(station) or {}
                 local stationOwner = GetComponentData(station, "owner")
-                local stationOwnerIcon = GetFactionData(stationOwner, "icon")
+                local stationOwnerIcon, stationOwnerColor = m.cache.factions[stationOwner].icon, m.cache.factions[stationOwner].color
                 for _, trade in ipairs(trades) do
                     local averagePrice = GetWareData(trade.ware, "avgprice")
                     local markup = 1 - trade.price/averagePrice
@@ -734,7 +734,7 @@ function m.getTradeOffers()
                         offers,
                         {
                             faction = stationOwner,
-                            factionText = string.format("\27[%s]", stationOwnerIcon),
+                            factionText = string.format("%s\27[%s]", Helper.convertColorToText(stationOwnerColor), stationOwnerIcon),
                             factionName = trade.factionname,
                             station = trade.station,
                             stationText = trade.stationname,
@@ -775,6 +775,10 @@ end
 -- @param forceSort bool Force sorting of cached data.
 --
 function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
+    if not m.state.offers or forceRefresh or forceFilter then
+        m.updateCache()
+    end
+
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
@@ -783,7 +787,6 @@ function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
     end
 
     if forceFilter then
-        m.updateCache()
         m.state.filteredOffers = {}
         for _, offer in ipairs(m.state.offers) do
             local passed = true
@@ -1188,7 +1191,7 @@ function m.updateCache(cache)
         m.cache.factions = {}
         local factions = GetLibrary("factions")
         for _, faction in ipairs(factions) do
-            faction.isenemy = GetFactionData(faction.id, "isenemy")
+            faction.isenemy, faction.color = GetFactionData(faction.id, "isenemy", "color")
             m.cache.factions[faction.id] = faction
         end
     end
@@ -1335,7 +1338,9 @@ function m.getFilterText(filter)
         else
             local icons = {}
             for faction, _ in pairs(m.state.filters.factions) do
-                table.insert(icons, string.format("\27[faction_%s]", faction))
+                local icon = m.cache.factions[faction].icon
+                local color = m.cache.factions[faction].color
+                table.insert(icons, string.format("%s\27[%s]", Helper.convertColorToText(color), icon))
             end
             table.sort(icons)
 
