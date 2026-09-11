@@ -1048,6 +1048,21 @@ function m.setFactionFilter(settings, append)
         m.state.filters.factions = {}
     end
 
+    if append and next(m.state.filters.factions) == nil then
+        local allNegative = true
+        for _, setting in ipairs(settings) do
+            if setting.state then
+                allNegative = false
+                break
+            end
+        end
+        if allNegative then
+            for _, faction in pairs(m.cache.factions) do
+                m.state.filters.factions[faction.id] = true
+            end
+        end
+    end
+
     for _, setting in ipairs(settings) do
         m.state.filters.factions[setting.id] = setting.state or nil
     end
@@ -1090,6 +1105,21 @@ function m.setWareFilter(settings, append)
     else
         for _, ware in ipairs(mapFilterWares) do
             enabledWares[ware] = true
+        end
+    end
+
+    if append and #mapFilterWares == 0 then
+        local allNegative = true
+        for _, setting in ipairs(settings) do
+            if setting.state then
+                allNegative = false
+                break
+            end
+        end
+        if allNegative then
+            for _, ware in pairs(m.menu.economyWares) do
+                enabledWares[ware] = true
+            end
         end
     end
 
@@ -1173,6 +1203,26 @@ end
 function m.setSectorFilter(settings, append)
     if not append then
         __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"] = {}
+    end
+
+    if append and #__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"] == 0 then
+        local allNegative = true
+        for _, setting in ipairs(settings) do
+            if setting.state then
+                allNegative = false
+                break
+            end
+        end
+        if allNegative then
+            local clusters = GetClusters(true) or {}
+            for _, cluster in ipairs(clusters) do
+                local sectors = GetSectors(cluster)
+                for _, sector in ipairs(sectors) do
+                    table.insert(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], tostring(sector))
+                end
+            end
+
+        end
     end
 
     for _, setting in ipairs(settings) do
