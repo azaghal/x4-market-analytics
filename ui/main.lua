@@ -450,7 +450,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[1]:getWidth() + row[2]:getWidth(), "Select Factions", options, m.setFactionFilter)
     end
-    row[1].handlers.onRightClick = function() m.setFactionFilter(nil) end
+    row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter(nil) end
 
     -- Sector filter
     filterText = m.getFilterText(m.filter.mapSearchSectors)
@@ -462,7 +462,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, m.setSectorFilter)
     end
-    row[3].handlers.onRightClick = function() m.setSectorFilter(nil) end
+    row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter(nil) end
 
     -- Distance filter
     local distanceOptions = {}
@@ -510,8 +510,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, m.setWareFilter)
     end
-    row[5].handlers.onRightClick = function() m.setWareFilter(nil) end
-
+    row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter(nil) end
 
     -- Offer type filter
     local options = {
@@ -550,6 +549,8 @@ function m.createFilterControls(ftable)
 	m.menu.refreshMainFrame = true
     end
     row[9].handlers.onRightClick = function()
+        if m.menu.closeContextMenu() then return end
+
         local setting = m.menuConfig.layersettings.layer_trade[4]
         m.menu.setFilterOption("layer_trade", setting, "trade_volume", 0)
         m.updateOffers(m.state.pageSize, false, true, true)
@@ -682,19 +683,19 @@ function m.renderOffers(ftable)
         local row = ftable:addRow(true, { fixed = true })
         row[1]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
         row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
-        row[1].handlers.onRightClick = function() m.setFactionFilter({{id = offer.faction, state = false}}) end
+        row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}) end
 
         row[2]:createText(offer.stationText)
 
         row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
         row[3].handlers.onClick = function() m.setSectorFilter({{id = offer.sector, state = true}}) end
-        row[3].handlers.onRightClick = function() m.setSectorFilter({{id = offer.sector, state = false}}) end
+        row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}) end
 
         row[4]:createText(offer.distanceText, { halign = "right" })
 
         row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.wareText)
         row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
-        row[5].handlers.onRightClick = function() m.setWareFilter({{id = offer.ware, state = false}}) end
+        row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}) end
 
         row[6]:createText(offer.typeText)
         row[7]:createText(offer.priceText, { halign = "right" })
