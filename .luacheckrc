@@ -1,5 +1,10 @@
 max_line_length = 160
 
+ignore = {
+    -- Used during development
+    "211/_debug",
+}
+
 globals = {
     -- Modules
     "Helper",
@@ -23,4 +28,6 @@ globals = {
     "GetTradeList",
     "GetWareData",
     "ReadText",
+    "registerForEvent",
+    "getElement",
 }

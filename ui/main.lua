@@ -1052,7 +1052,7 @@ end
 -- @param settings [{id = string, state = bool}]|nil List of settings to apply. Clears the filter if nil.
 --
 function m.setWareFilter(settings)
-    local mapFilterSetting, mapFilterWares = m.menu.getTradeWareFilter(true)
+    local mapFilterSetting, _ = m.menu.getTradeWareFilter(true)
 
     if not settings then
         -- @NOTE: Workaround for setFilterOption closing context menu when passing-in multiple wares
