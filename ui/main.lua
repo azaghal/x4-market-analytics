@@ -450,7 +450,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[1]:getWidth() + row[2]:getWidth(), "Select Factions", options, m.setFactionFilter)
     end
-    row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter(nil) end
+    row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({}) end
 
     -- Sector filter
     filterText = m.getFilterText(m.filter.mapSearchSectors)
@@ -462,7 +462,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, m.setSectorFilter)
     end
-    row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter(nil) end
+    row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({}) end
 
     -- Distance filter
     local distanceOptions = {}
@@ -510,7 +510,7 @@ function m.createFilterControls(ftable)
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, m.setWareFilter)
     end
-    row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter(nil) end
+    row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({}) end
 
     -- Offer type filter
     local options = {
@@ -683,19 +683,19 @@ function m.renderOffers(ftable)
         local row = ftable:addRow(true, { fixed = true })
         row[1]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
         row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
-        row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}) end
+        row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}, true) end
 
         row[2]:createText(offer.stationText)
 
         row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
         row[3].handlers.onClick = function() m.setSectorFilter({{id = offer.sector, state = true}}) end
-        row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}) end
+        row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}, true) end
 
         row[4]:createText(offer.distanceText, { halign = "right" })
 
         row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.wareText)
         row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
-        row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}) end
+        row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}, true) end
 
         row[6]:createText(offer.typeText)
         row[7]:createText(offer.priceText, { halign = "right" })
@@ -919,7 +919,7 @@ end
 -- @param width number Total menu width.
 -- @param title string Menu title to show in menu header.
 -- @param options [{ id = any, text = string, state = bool }] List of options to show.
--- @param callback function([{id = any, state = bool}]|nil) Callback function invoked when options change state.
+-- @param callback function([{id = any, state = bool}], append = bool) Callback function invoked when options change state.
 --
 function m.createMultiValuePicker(x, y, width, title, options, callback)
     local allOptionsEnabled = true
@@ -974,7 +974,7 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
     for _, option in ipairs(options) do
         row = ftable:addRow(option.id)
         row[1]:createCheckBox(option.state, { height = Helper.standardTextHeight, width = Helper.standardTextHeight })
-        row[1].handlers.onClick = function(_, state) callback({{id = option.id, state = state}}) end
+        row[1].handlers.onClick = function(_, state) callback({{id = option.id, state = state}}, true) end
         row[2]:createText(option.text)
     end
 
@@ -1040,15 +1040,16 @@ end
 
 --- Sets the trade offers factions filter.
 --
--- @param settings [{id = string, state = bool}]|nil List of settings to apply. Clears the filter if nil.
+-- @param settings [{id = string, state = bool}] List of settings to apply.
+-- @param append bool Append to existing settings instead of replacing them.
 --
-function m.setFactionFilter(settings)
-    if not settings then
+function m.setFactionFilter(settings, append)
+    if not append then
         m.state.filters.factions = {}
-    else
-        for _, setting in ipairs(settings) do
-            m.state.filters.factions[setting.id] = setting.state or nil
-        end
+    end
+
+    for _, setting in ipairs(settings) do
+        m.state.filters.factions[setting.id] = setting.state or nil
     end
 
     m.updateOffers(m.state.pageSize, false, true, true)
@@ -1061,11 +1062,13 @@ end
 -- Ware filter changes are tracked and synced via map menu.
 --
 -- @param settings [{id = string, state = bool}]|nil List of settings to apply. Clears the filter if nil.
+-- @param append bool Append to existing settings instead of replacing them.
 --
-function m.setWareFilter(settings)
-    local mapFilterSetting, _ = m.menu.getTradeWareFilter(true)
+function m.setWareFilter(settings, append)
+    local mapFilterSetting, mapFilterWares = m.menu.getTradeWareFilter(true)
+    local enabledWares = {}
 
-    if not settings then
+    if not append then
         -- @NOTE: Workaround for setFilterOption closing context menu when passing-in multiple wares
         --
         --     Vanilla code closes the context menu if the setFilterOption function is invoked by passing-in a { wareid = _ } table. In context of this mod,
@@ -1085,17 +1088,19 @@ function m.setWareFilter(settings)
         m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, {})
         m.menu.closeContextMenu = originalCloseContextMenu
     else
-        local enabledWares = {}
-        for _, setting in ipairs(settings) do
-            if setting.state then
-                enabledWares[setting.id] = true
-            end
+        for _, ware in ipairs(mapFilterWares) do
+            enabledWares[ware] = true
         end
-        local originalCloseContextMenu = m.menu.closeContextMenu
-        m.menu.closeContextMenu = function() end
-        m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, enabledWares)
-        m.menu.closeContextMenu = originalCloseContextMenu
     end
+
+    for _, setting in ipairs(settings) do
+        enabledWares[setting.id] = setting.state or nil
+    end
+
+    local originalCloseContextMenu = m.menu.closeContextMenu
+    m.menu.closeContextMenu = function() end
+    m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, enabledWares)
+    m.menu.closeContextMenu = originalCloseContextMenu
 
     m.updateOffers(m.state.pageSize, false, true, true)
     m.menu.refreshMainFrame = true
@@ -1163,25 +1168,26 @@ end
 -- Sector filter changes are tracked and synced via map menu.
 --
 -- @param settings [{id = component<sector>, state = bool}]|nil List of settings to apply. Clears the filter if nil.
+-- @param append bool Append to existing settings instead of replacing them.
 --
-function m.setSectorFilter(settings)
-    if not settings then
+function m.setSectorFilter(settings, append)
+    if not append then
         __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"] = {}
-    else
-        for _, setting in ipairs(settings) do
-            local found = false
-            for i, filteredSector in ipairs(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]) do
-                if tostring(setting.id) == filteredSector then
-                    found = i
-                    break
-                end
-            end
+    end
 
-            if setting.state and not found then
-                table.insert(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], tostring(setting.id))
-            elseif not setting.state and found then
-                table.remove(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], found)
+    for _, setting in ipairs(settings) do
+        local found = false
+        for i, filteredSector in ipairs(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]) do
+            if tostring(setting.id) == filteredSector then
+                found = i
+                break
             end
+        end
+
+        if setting.state and not found then
+            table.insert(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], tostring(setting.id))
+        elseif not setting.state and found then
+            table.remove(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], found)
         end
     end
 
