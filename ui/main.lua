@@ -92,7 +92,7 @@ m.config = {
             index = 8,
             title = "Markup",
             dataSample = "+99.99%",
-            sortProperty = "markup",
+            sortProperty = "markupSort",
             fixedWidth = true,
         },
         {
@@ -516,9 +516,9 @@ function m.createFilterControls(ftable)
     -- Offer type filter
     local options = {
         -- @NOTE: ID 0 does _not_ correspond to offer.type == 0 (offer.type == 0 is _probably_ not possible).
-        { id = "0", text = "All", icon = "", displayremoveoption = false},
-        { id = "1", text = "Buys", icon = "", displayremoveoption = false},
-        { id = "2", text = "Sells", icon = "", displayremoveoption = false},
+        { id = "0", text = "Any", icon = "", displayremoveoption = false},
+        { id = "1", text = string.format("%s%s", Helper.convertColorToText(Color["trade_buyoffer"]), "Buys"), icon = "", displayremoveoption = false},
+        { id = "2", text = string.format("%s%s", Helper.convertColorToText(Color["trade_selloffer"]), "Sells"), icon = "", displayremoveoption = false},
     }
     row[6]:createDropDown(
         options,
@@ -730,11 +730,19 @@ function m.getTradeOffers()
                 for _, trade in ipairs(trades) do
                     local averagePrice = GetWareData(trade.ware, "avgprice")
                     local markup = 1 - trade.price/averagePrice
+                    local factionText = string.format("%s\27[%s]", Helper.convertColorToText(stationOwnerColor), stationOwnerIcon)
+                    local typeTextColor =
+                        trade.isbuyoffer and Helper.convertColorToText(Color["trade_buyoffer"]) or
+                        trade.isselloffer and Helper.convertColorToText(Color["trade_selloffer"]) or
+                        ""
+                    local typeText = string.format("%s%s", typeTextColor, trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None")
+                    local priceTextColor = Helper.convertColorToText(Helper.interpolatePriceColor(trade.ware, trade.price, trade.isselloffer))
+                    local priceText = string.format("%s%s%s", priceTextColor, ConvertMoneyString(trade.price, true, true, 0, true), currencySuffix)
                     table.insert(
                         offers,
                         {
                             faction = stationOwner,
-                            factionText = string.format("%s\27[%s]", Helper.convertColorToText(stationOwnerColor), stationOwnerIcon),
+                            factionText = factionText,
                             factionName = trade.factionname,
                             station = trade.station,
                             stationText = trade.stationname,
@@ -746,12 +754,14 @@ function m.getTradeOffers()
                             ware = trade.ware,
                             wareText = trade.name,
                             type = trade.isbuyoffer and 1 or trade.isselloffer and 2 or nil,
-                            typeText = trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None",
+                            typeText = typeText,
                             price = trade.price,
                             -- Arguments: price, includeFraction, includeComma, ?, ?
-                            priceText = ConvertMoneyString(trade.price, true, true, 0, true) .. currencySuffix,
+                            priceText = priceText,
                             markup = markup,
                             markupText = string.format("%.2f%%", markup * 100),
+                            -- When sorting, markup has different meanings for buys/sells.
+                            markupSort = trade.isbuyoffer and markup or -markup,
                             amount = trade.amount,
                             amountText = tostring(trade.amount),
                         }
