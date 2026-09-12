@@ -447,11 +447,9 @@ function m.createFilterControls(ftable)
     row[1].handlers.onClick = function()
         local options = {}
         for _, faction in pairs(m.cache.factions) do
-            if faction.id ~= "player" then
-                local text = string.format("%s\27[%s]  %s", Helper.convertColorToText(faction.color), faction.icon, faction.name)
-                -- The "name" property is only used for sorting, it is not required for multi-value picker.
-                table.insert(options, { id = faction.id, name = faction.name, text = text, state = m.state.filters.factions[faction.id] })
-            end
+            local text = string.format("%s\27[%s]  %s", Helper.convertColorToText(faction.color), faction.icon, faction.name)
+            -- The "name" property is only used for sorting, it is not required for multi-value picker.
+            table.insert(options, { id = faction.id, name = faction.name, text = text, state = m.state.filters.factions[faction.id] })
         end
 
         table.sort(options, function(a, b) return a.name < b.name end)
