@@ -825,7 +825,14 @@ end
 --
 function m.updateControls()
     m.widgets.currentPage.properties.text.text = string.format("%s / %s", m.state.currentPage, m.state.pageCount)
-    m.widgets.offersAge.properties.text = Helper.getPassedTime(m.state.offersAge)
+
+    local passedTime = C.GetCurrentGameTime() - m.state.offersAge
+    local offersAgeColor =
+        passedTime < 120 and Color["text_normal"] or
+        passedTime < 300 and Color["text_neutral"] or
+        passedTime < 900 and Color["text_warning"] or
+        Color["text_negative"]
+    m.widgets.offersAge.properties.text = string.format("%s%s", Helper.convertColorToText(offersAgeColor),Helper.getPassedTime(m.state.offersAge))
 end
 
 
