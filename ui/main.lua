@@ -467,7 +467,8 @@ function m.createFilterControls(ftable)
     row[3]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[3].handlers.onClick = function()
         local options = m.generateSectorFilterOptions()
-        table.sort(options, function(a, b) return a.text < b.text end)
+        -- Place selected sectors at top for easier access/overview since the list can get quite large.
+        table.sort(options, function(a, b) return a.state == b.state and a.text < b.text or a.state and not b.state or false end)
         local x = row.table.frame.properties.x + row[3]:getOffsetX()
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, m.setSectorFilter)
@@ -513,7 +514,8 @@ function m.createFilterControls(ftable)
             table.insert(options, { id = ware, text = GetWareData(ware, "name"), state = state })
         end
 
-        table.sort(options, function(a, b) return a.text < b.text end)
+        -- Place selected wares at top for easier access/overview since the list can get quite large.
+        table.sort(options, function(a, b) return a.state == b.state and a.text < b.text or a.state and not b.state or false end)
         local x = row.table.frame.properties.x + row[5]:getOffsetX()
         local y = pickerVerticalPosition
         m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, m.setWareFilter)
