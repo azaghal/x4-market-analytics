@@ -194,6 +194,8 @@ function m.initData()
         -- Do not show column sorting priority when sorting by a singular player-selected column.
         if #m.state.sortParameters > 1 then
             parameter.priority = priority
+        else
+            parameter.priority = nil
         end
         m.state.sortParametersBy[parameter.property] = parameter
     end
@@ -376,7 +378,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
     end
 
     row[11]:createButton():setText("Reset", { halign = "center" })
-    row[11].handlers.onClick = function() m.resetAllFilters() end
+    row[11].handlers.onClick = function() m.resetAllControls() end
 
     row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
     m.widgets.offersAge = row[12]
@@ -1377,9 +1379,9 @@ function m.setTradeVolumeFilter(volume)
 end
 
 
---- Resets all filters.
+--- Resets all filters and sorting.
 --
-function m.resetAllFilters()
+function m.resetAllControls()
     m.setFactionFilter({})
     m.setSectorFilter({})
     m.setMaxDistanceFilter()
@@ -1387,7 +1389,26 @@ function m.resetAllFilters()
     m.setTypeFilter()
     m.setTradeVolumeFilter()
 
-    m.updateOffers(m.state.pageSize, true, false, false)
+    m.state.sortParameters = { { property = "factionName", ascending = true } }
+    -- Make parameters accessible by sort property.
+    -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
+    m.state.sortParametersBy = {}
+    for priority, parameter in ipairs(m.state.sortParameters) do
+        -- Do not show column sorting priority when sorting by a singular player-selected column.
+        if #m.state.sortParameters > 1 then
+            parameter.priority = priority
+        else
+            parameter.priority = nil
+        end
+        m.state.sortParametersBy[parameter.property] = parameter
+    end
+
+    local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
+    m.setReferenceSector(ConvertStringToLuaID(tostring(playerSector)))
+
+    m.state.currentPage = 1
+
+    m.updateOffers(m.state.pageSize, false, false, false)
     m.menu.refreshInfoFrame2()
 end
 
