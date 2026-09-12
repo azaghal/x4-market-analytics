@@ -686,7 +686,13 @@ function m.renderOffers(ftable)
         row[2]:createText(offer.stationText)
 
         row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
-        row[3].handlers.onClick = function() m.setSectorFilter({{id = offer.sector, state = true}}) end
+        row[3].handlers.onClick = function()
+            if C.IsControlPressed() then
+                m.setReferenceSector(offer.sector)
+            else
+                m.setSectorFilter({{id = offer.sector, state = true}})
+            end
+        end
         row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}, true) end
 
         row[4]:createText(offer.distanceText, { halign = "right" })
