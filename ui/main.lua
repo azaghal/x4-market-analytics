@@ -232,6 +232,8 @@ function m.registerRightBar(menuConfig)
         name = "Market Analytics",
         icon = "mapst_fs_trade",
         mode = "marketanalytics",
+        helpOverlayID = "map_sidebar_marketanalytics",
+        helpOverlayText = "Market analytics allows you to browse, filter, and sort trade offers by various criteria.",
     }
 
     table.insert(menuConfig.rightBar, { spacing = true })
