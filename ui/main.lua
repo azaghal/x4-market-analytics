@@ -18,6 +18,15 @@ local function _debug(...)
 end
 
 
+local enum = {
+    offertype = {
+        ["any"] = 0,
+        ["buy"] = 1,
+        ["sell"] = 2,
+    }
+}
+
+
 local m = {}
 
 -- Tracks original menu functions.
@@ -370,6 +379,9 @@ function m.createControlsTable(frame, offsetX, offsetY)
         m.setReferenceSector(ConvertStringToLuaID(tostring(playerSector)))
     end
 
+    row[11]:createButton():setText("Reset", { halign = "center" })
+    row[11].handlers.onClick = function() m.resetAllFilters() end
+
     row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
     m.widgets.offersAge = row[12]
     row[13]:createButton():setText("Refresh", { halign = "center" })
@@ -483,9 +495,7 @@ function m.createFilterControls(ftable)
     row[4].handlers.onDropDownActivated = function() m.menu.noupdate = true end
     row[4].handlers.onDropDownConfirmed = function(_, id)
         m.menu.noupdate = nil
-        m.state.filters.maxDistance = tonumber(id)
-        m.updateOffers(m.state.pageSize, false, true, true)
-        m.menu.refreshInfoFrame2()
+        m.setMaxDistanceFilter(tonumber(id))
     end
 
     -- Ware filter
@@ -514,10 +524,12 @@ function m.createFilterControls(ftable)
 
     -- Offer type filter
     local options = {
-        -- @NOTE: ID 0 does _not_ correspond to offer.type == 0 (offer.type == 0 is _probably_ not possible).
-        { id = "0", text = "Any", icon = "", displayremoveoption = false},
-        { id = "1", text = string.format("%s%s", Helper.convertColorToText(Color["trade_buyoffer"]), "Buys"), icon = "", displayremoveoption = false},
-        { id = "2", text = string.format("%s%s", Helper.convertColorToText(Color["trade_selloffer"]), "Sells"), icon = "", displayremoveoption = false},
+        { id = tostring(enum.offertype.any),
+          text = "Any", icon = "", displayremoveoption = false},
+        { id = tostring(enum.offertype.buy),
+          text = string.format("%s%s", Helper.convertColorToText(Color["trade_buyoffer"]), "Buys"), icon = "", displayremoveoption = false},
+        { id = tostring(enum.offertype.sell),
+          text = string.format("%s%s", Helper.convertColorToText(Color["trade_selloffer"]), "Sells"), icon = "", displayremoveoption = false},
     }
     row[6]:createDropDown(
         options,
@@ -530,32 +542,20 @@ function m.createFilterControls(ftable)
     row[6].handlers.onDropDownActivated = function() m.menu.noupdate = true end
     row[6].handlers.onDropDownConfirmed = function(_, id)
         m.menu.noupdate = nil
-        m.state.filters.type = tonumber(id)
-        m.updateOffers(m.state.pageSize, false, true, true)
-        m.menu.refreshInfoFrame2()
+        m.setTypeFilter(tonumber(id))
     end
 
     -- Amount filter by volume
     row[9]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
     row[9]:setText(m.getFilterText(m.filter.mapTradeVolume), { halign = "right" })
     row[9].handlers.onClick = function()
-        local setting = m.menuConfig.layersettings.layer_trade[4]
-        local currentVolume = m.menu.getFilterOption("trade_volume", setting.savegame)
-        local currentVolumeInfo = m.getTradeVolumeInfo(currentVolume) or m.getTradeVolumeInfo(0)
-        local nextVolume = currentVolumeInfo.nextVolume
+        local volumeInfo = m.getTradeVolumeInfo() or m.getTradeVolumeInfo(0)
+        m.setTradeVolumeFilter(volumeInfo.nextVolume)
 
-        m.menu.setFilterOption("layer_trade", setting, "trade_volume", nextVolume)
         m.updateOffers(m.state.pageSize, false, true, true)
 	m.menu.refreshMainFrame = true
     end
-    row[9].handlers.onRightClick = function()
-        if m.menu.closeContextMenu() then return end
-
-        local setting = m.menuConfig.layersettings.layer_trade[4]
-        m.menu.setFilterOption("layer_trade", setting, "trade_volume", 0)
-        m.updateOffers(m.state.pageSize, false, true, true)
-	m.menu.refreshMainFrame = true
-    end
+    row[9].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setTradeVolumeFilter() end
 end
 
 
@@ -1141,11 +1141,15 @@ end
 --
 -- May return nil if the passed-in volume is no longer valid.
 --
--- @param volume number Trade volume for which to get information.
+-- @param volume number|nil Trade volume for which to get information. If nil, returns the currently set trade volume info.
 --
 -- @return { name = string, text = string, mouseOverText = string, nextVolume = number }|nil Trade volume information/representation.
 --
 function m.getTradeVolumeInfo(volume)
+    if volume == nil then
+        volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
+    end
+
     if not m.cache.volumeInfo[volume] then
         m.updateCache("volumeInfo")
     end
@@ -1329,6 +1333,62 @@ function m.setReferenceSector(sector)
 end
 
 
+--- Sets the maximum jump distance filter.
+--
+-- @param distance number|nil Distance in jumps. nil resets the filter to default value.
+--
+function m.setMaxDistanceFilter(distance)
+    if not distance then
+        m.state.filters.maxDistance = m.config.maxDistanceFilterLimit
+    else
+        m.state.filters.maxDistance = distance
+    end
+
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshInfoFrame2()
+end
+
+
+--- Sets the offer type filter.
+--
+-- @param type_ enum.offertype|nil Offer type. nil resets the filter to default value.
+--
+function m.setTypeFilter(type_)
+    m.state.filters.type = type_ or 0
+
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshInfoFrame2()
+end
+
+
+--- Sets the trade volume filter.
+--
+-- @param volume number|nil Trade volume to set the filter to. nil resets the filter to default value.
+--
+function m.setTradeVolumeFilter(volume)
+    local setting = m.menuConfig.layersettings.layer_trade[4]
+    m.menu.setFilterOption("layer_trade", setting, "trade_volume", volume or 0)
+
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshMainFrame = true
+end
+
+
+--- Resets all filters.
+--
+function m.resetAllFilters()
+    m.setFactionFilter({})
+    m.setSectorFilter({})
+    m.setMaxDistanceFilter()
+    m.setWareFilter({})
+    m.setTypeFilter()
+    m.setTradeVolumeFilter()
+
+    m.updateOffers(m.state.pageSize, true, false, false)
+    m.menu.refreshInfoFrame2()
+end
+
+
 -- Trade offer filters
 -- ===================
 
@@ -1419,8 +1479,7 @@ function m.getFilterText(filter)
         end
 
     elseif filter == m.filter.mapTradeVolume then
-        local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
-        local volumeInfo = m.getTradeVolumeInfo(volume) or m.getTradeVolumeInfo(0)
+        local volumeInfo = m.getTradeVolumeInfo() or m.getTradeVolumeInfo(0)
         text = volumeInfo.text
 
     elseif filter == m.filter.mapSearchWares then
@@ -1465,7 +1524,7 @@ end
 -- @return bool true if the offer satisfies the filter, false otherwise.
 --
 function m.filter.type(offer)
-    if m.state.filters.type == 0 then
+    if m.state.filters.type == enum.offertype.any then
         return true
     end
 
@@ -1480,9 +1539,9 @@ end
 -- @return bool true if the offer satisfies the filter, false otherwise.
 --
 function m.filter.mapTradeVolume(offer)
-    local volume = m.menu.getFilterOption("trade_volume", m.menuConfig.layersettings.layer_trade[4].savegame)
+    local volumeInfo = m.getTradeVolumeInfo()
 
-    return offer.amount * m.getWareVolume(offer.ware) >= volume
+    return offer.amount * m.getWareVolume(offer.ware) >= volumeInfo.volume
 end
 
 
