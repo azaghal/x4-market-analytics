@@ -363,12 +363,8 @@ function m.createControlsTable(frame, offsetX, offsetY)
     local pickerY = ftable.frame.properties.y + ftable.properties.y + ftable:getVisibleHeight()
     row[1].handlers.onClick = function()
         local options = {}
-        local clusters = GetClusters(true) or {}
-        for _, cluster in ipairs(clusters) do
-            local sectors = GetSectors(cluster)
-            for _, sector in ipairs(sectors) do
-                table.insert(options, { id = sector, text = GetComponentData(sector, "name"), state = tostring(sector) == tostring(m.state.referenceSector) })
-            end
+        for name, sector in pairs(m.cache.sectors) do
+            table.insert(options, { id = sector, text = name, state = tostring(sector) == tostring(m.state.referenceSector) })
         end
         table.sort(options, function(a, b) return a.text < b.text end)
         m.createValuePicker(pickerX, pickerY, row[1]:setColSpan(3):getWidth(), "Select Reference Sector", options, m.setReferenceSector)
@@ -716,58 +712,53 @@ function m.getTradeOffers()
     local offers = {}
     local currencySuffix = " " .. ReadText(1001, 101)
 
-    local clusters = GetClusters(true) or {}
-    for _, cluster in ipairs(clusters) do
-        local sectors = GetSectors(cluster)
-        for _, sector in ipairs(sectors) do
-            local stations = GetContainedStations(sector, true) or {}
-            local sectorName = GetComponentData(sector, "name")
-            local jumpDistance = FindJumpRoute(m.state.referenceSector, sector)
-            local realDistance = C.GetDistanceBetween(ConvertStringTo64Bit(tostring(m.state.referenceSector)), ConvertStringTo64Bit(tostring(sector)))
-            for _, station in ipairs(stations) do
-                local trades = GetTradeList(station) or {}
-                local stationOwner = GetComponentData(station, "owner")
-                local stationOwnerIcon, stationOwnerColor = m.cache.factions[stationOwner].icon, m.cache.factions[stationOwner].color
-                for _, trade in ipairs(trades) do
-                    local averagePrice = GetWareData(trade.ware, "avgprice")
-                    local markup = trade.price/averagePrice - 1
-                    local factionText = string.format("%s\27[%s]", Helper.convertColorToText(stationOwnerColor), stationOwnerIcon)
-                    local typeTextColor =
-                        trade.isbuyoffer and Helper.convertColorToText(Color["trade_buyoffer"]) or
-                        trade.isselloffer and Helper.convertColorToText(Color["trade_selloffer"]) or
-                        ""
-                    local typeText = string.format("%s%s", typeTextColor, trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None")
-                    local priceTextColor = Helper.convertColorToText(Helper.interpolatePriceColor(trade.ware, trade.price, trade.isselloffer))
-                    local priceText = string.format("%s%s%s", priceTextColor, ConvertMoneyString(trade.price, true, true, 0, true), currencySuffix)
-                    table.insert(
-                        offers,
-                        {
-                            faction = stationOwner,
-                            factionText = factionText,
-                            factionName = trade.factionname,
-                            station = trade.station,
-                            stationText = trade.stationname,
-                            sector = sector,
-                            sectorText = sectorName,
-                            distance = jumpDistance,
-                            distanceText = tostring(jumpDistance) .. "j",
-                            realDistance = realDistance,
-                            ware = trade.ware,
-                            wareText = trade.name,
-                            type = trade.isbuyoffer and 1 or trade.isselloffer and 2 or nil,
-                            typeText = typeText,
-                            price = trade.price,
-                            -- Arguments: price, includeFraction, includeComma, ?, ?
-                            priceText = priceText,
-                            markup = markup,
-                            markupText = string.format("%.2f%%", markup * 100),
-                            -- When sorting, markup has opposite meanings in terms of "quality" for buys/sells.
-                            markupSort = trade.isbuyoffer and -markup or markup,
-                            amount = trade.amount,
-                            amountText = tostring(trade.amount),
-                        }
-                    )
-                end
+    for sectorName, sector in pairs(m.cache.sectors) do
+        local stations = GetContainedStations(sector, true) or {}
+        local jumpDistance = FindJumpRoute(m.state.referenceSector, sector)
+        local realDistance = C.GetDistanceBetween(ConvertStringTo64Bit(tostring(m.state.referenceSector)), ConvertStringTo64Bit(tostring(sector)))
+        for _, station in ipairs(stations) do
+            local trades = GetTradeList(station) or {}
+            local stationOwner = GetComponentData(station, "owner")
+            local stationOwnerIcon, stationOwnerColor = m.cache.factions[stationOwner].icon, m.cache.factions[stationOwner].color
+            for _, trade in ipairs(trades) do
+                local averagePrice = GetWareData(trade.ware, "avgprice")
+                local markup = trade.price/averagePrice - 1
+                local factionText = string.format("%s\27[%s]", Helper.convertColorToText(stationOwnerColor), stationOwnerIcon)
+                local typeTextColor =
+                    trade.isbuyoffer and Helper.convertColorToText(Color["trade_buyoffer"]) or
+                    trade.isselloffer and Helper.convertColorToText(Color["trade_selloffer"]) or
+                    ""
+                local typeText = string.format("%s%s", typeTextColor, trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None")
+                local priceTextColor = Helper.convertColorToText(Helper.interpolatePriceColor(trade.ware, trade.price, trade.isselloffer))
+                local priceText = string.format("%s%s%s", priceTextColor, ConvertMoneyString(trade.price, true, true, 0, true), currencySuffix)
+                table.insert(
+                    offers,
+                    {
+                        faction = stationOwner,
+                        factionText = factionText,
+                        factionName = trade.factionname,
+                        station = trade.station,
+                        stationText = trade.stationname,
+                        sector = sector,
+                        sectorText = sectorName,
+                        distance = jumpDistance,
+                        distanceText = tostring(jumpDistance) .. "j",
+                        realDistance = realDistance,
+                        ware = trade.ware,
+                        wareText = trade.name,
+                        type = trade.isbuyoffer and 1 or trade.isselloffer and 2 or nil,
+                        typeText = typeText,
+                        price = trade.price,
+                        -- Arguments: price, includeFraction, includeComma, ?, ?
+                        priceText = priceText,
+                        markup = markup,
+                        markupText = string.format("%.2f%%", markup * 100),
+                        -- When sorting, markup has opposite meanings in terms of "quality" for buys/sells.
+                        markupSort = trade.isbuyoffer and -markup or markup,
+                        amount = trade.amount,
+                        amountText = tostring(trade.amount),
+                    }
+                )
             end
         end
     end
@@ -1178,19 +1169,16 @@ end
 function m.generateSectorFilterOptions()
     local options = {}
     local filteredSectors = __CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"]
-    local clusters = GetClusters(true) or {}
-    for _, cluster in ipairs(clusters) do
-        local sectors = GetSectors(cluster)
-        for _, sector in ipairs(sectors) do
-            local state = false
-            for _, filteredSector in ipairs(filteredSectors) do
-                if tostring(sector) == filteredSector then
-                    state = true
-                    break
-                end
+
+    for name, sector in pairs(m.cache.sectors) do
+        local state = false
+        for _, filteredSector in ipairs(filteredSectors) do
+            if tostring(sector) == filteredSector then
+                state = true
+                break
             end
-            table.insert(options, { id = sector, text = GetComponentData(sector, "name"), state = state })
         end
+        table.insert(options, { id = sector, text = name, state = state })
     end
 
     return options
@@ -1218,14 +1206,9 @@ function m.setSectorFilter(settings, append)
             end
         end
         if allNegative then
-            local clusters = GetClusters(true) or {}
-            for _, cluster in ipairs(clusters) do
-                local sectors = GetSectors(cluster)
-                for _, sector in ipairs(sectors) do
-                    table.insert(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], tostring(sector))
-                end
+            for _, sector in pairs(m.cache.sectors) do
+                table.insert(__CORE_DETAILMONITOR_MAPFILTER_SAVE["searchsectors"], tostring(sector))
             end
-
         end
     end
 
@@ -1317,6 +1300,19 @@ function m.updateCache(cache)
         m.cache.wareVolume = {}
         for _, ware in pairs(m.menu.economyWares) do
             m.cache.wareVolume[ware] = GetWareData(ware, "volume")
+        end
+    end
+
+    -- @NOTE: Requires the game to finish loading (probably).
+    if cache == "sectors" or cache == nil then
+        m.cache.sectors = {}
+        local clusters = GetClusters(true) or {}
+        for _, cluster in ipairs(clusters) do
+            local sectors = GetSectors(cluster)
+            for _, sector in ipairs(sectors) do
+                local name = GetComponentData(sector, "name")
+                m.cache.sectors[name] = sector
+            end
         end
     end
 end
