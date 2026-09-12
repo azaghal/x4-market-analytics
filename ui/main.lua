@@ -1438,7 +1438,7 @@ function m.truncateText(text, width, font, fontSize)
     font = font or Helper.standardFont
     fontSize = fontSize or Helper.standardFontSize
 
-    local fontSize = Helper.scaleFont(font, fontSize)
+    fontSize = Helper.scaleFont(font, fontSize)
     local truncatedText = TruncateText(text, font, fontSize, width)
 
     return truncatedText, text ~= truncatedText and text or nil

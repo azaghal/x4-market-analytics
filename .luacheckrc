@@ -30,4 +30,5 @@ globals = {
     "ReadText",
     "registerForEvent",
     "getElement",
+    "TruncateText",
 }
