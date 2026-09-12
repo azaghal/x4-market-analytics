@@ -685,7 +685,8 @@ function m.renderOffers(ftable)
 
         row[2]:createText(offer.stationText)
 
-        row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.sectorText)
+        local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth())
+        row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
         row[3].handlers.onClick = function()
             if C.IsControlPressed() then
                 m.setReferenceSector(offer.sector)
@@ -697,7 +698,8 @@ function m.renderOffers(ftable)
 
         row[4]:createText(offer.distanceText, { halign = "right" })
 
-        row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.wareText)
+        truncatedText, mouseOverText = m.truncateText(offer.wareText, row[3]:getWidth())
+        row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
         row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
         row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}, true) end
 
@@ -1416,6 +1418,28 @@ function m.resetAllControls()
 
     m.updateOffers(m.state.pageSize, false, false, false)
     m.menu.refreshInfoFrame2()
+end
+
+
+--- Truncates text to specified width, taking scaling into the account.
+--
+-- Useful for generating mouse-over text for buttons.
+--
+-- @param text string Text to truncate.
+-- @param width number Maximum width the text should fit.
+-- @param font string|nil Font used for width calculatioins. Defaults to Helper.standardFont.
+-- @param fontSize string|nil Font size used for calculations. Defaults to Helper.standardFontSize.
+--
+-- @return (string, string) Truncated text and full text if text was truncated.
+--
+function m.truncateText(text, width, font, fontSize)
+    font = font or Helper.standardFont
+    fontSize = fontSize or Helper.standardFontSize
+
+    local fontSize = Helper.scaleFont(font, fontSize)
+    local truncatedText = TruncateText(text, font, fontSize, width)
+
+    return truncatedText, text ~= truncatedText and text or nil
 end
 
 
