@@ -323,7 +323,7 @@ function m.createHeaderTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
         1,
         {
-            tabOrder = 1,
+            tabOrder = 0,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_semitransparent"],
@@ -333,7 +333,7 @@ function m.createHeaderTable(frame, offsetX, offsetY)
         }
     )
 
-    local row = ftable:addRow(false, { bgColor = Helper.defaultTitleBackgroundColor })
+    local row = ftable:addRow(false, { bgColor = Helper.defaultTitleBackgroundColor, fixed = true })
     row[1]:createText("Market Analytics", Helper.headerRowCenteredProperties)
 
     return ftable
@@ -352,7 +352,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
         13,
         {
-            tabOrder = 1,
+            tabOrder = 5,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_semitransparent"],
@@ -575,7 +575,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
         #m.config.wareColumns,
         {
-            tabOrder = 1,
+            tabOrder = 6,
             highlightMode = "on",
             backgroundID = "solid",
             backgroundColor = Helper.color.semitransparent,
@@ -960,7 +960,7 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
     local ftable = frame:addTable(
         2,
         {
-            tabOrder = 1,
+            tabOrder = 7,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_black"],
@@ -1024,7 +1024,7 @@ function m.createValuePicker(x, y, width, title, options, callback)
     local ftable = frame:addTable(
         1,
         {
-            tabOrder = 1,
+            tabOrder = 7,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_black"],
@@ -1034,7 +1034,7 @@ function m.createValuePicker(x, y, width, title, options, callback)
         }
     )
 
-    local row = ftable:addRow(true, { fixed = true })
+    local row = ftable:addRow(true)
     row[1]:createText(title, Helper.headerRowCenteredProperties)
 
     for _, option in ipairs(options) do
