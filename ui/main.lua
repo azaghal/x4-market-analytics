@@ -267,6 +267,8 @@ function m.createMenu()
     local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
 
     m.widgets.waresTable = waresTable
+    -- Piggyback off of vanilla menu row tracking.
+    m.widgets.waresTable:setSelectedRow(m.menu.selectedRows.infotable3right)
 
     m.updateOffers(offersPageSize, false, false, false)
     m.renderOffers(waresTable)
@@ -352,7 +354,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
         13,
         {
-            tabOrder = 5,
+            tabOrder = 1,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_semitransparent"],
@@ -575,7 +577,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
         #m.config.wareColumns,
         {
-            tabOrder = 6,
+            tabOrder = 2,
             highlightMode = "on",
             backgroundID = "solid",
             backgroundColor = Helper.color.semitransparent,
@@ -960,7 +962,7 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
     local ftable = frame:addTable(
         2,
         {
-            tabOrder = 7,
+            tabOrder = 3,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_black"],
@@ -1024,7 +1026,7 @@ function m.createValuePicker(x, y, width, title, options, callback)
     local ftable = frame:addTable(
         1,
         {
-            tabOrder = 7,
+            tabOrder = 3,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_black"],
