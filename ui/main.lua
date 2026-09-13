@@ -1466,29 +1466,57 @@ function m.onTableRightMouseClick(tableID, rowID, posx, posy)
 
     -- Show the trade menu to player.
     if C.IsControlPressed() then
-        m.menu.contextMenuMode = "trade"
-        m.menu.contextMenuData = { component = ConvertIDTo64Bit(offer.station), orders = {}, tradeid = offer.id }
-        local wareRowsCount, infoRowsCount = m.menu.initTradeContextData()
-        m.menu.updateTradeContextDimensions(wareRowsCount, infoRowsCount)
-
-        AddUITriggeredEvent(m.menu.name, "pickedtradeoffer", offer.isbuyoffer and "buyoffer" or "selloffer")
-
-        local offsetX, offsetY = GetLocalMousePosition()
-        local offsetX = offsetX + Helper.viewWidth / 2
-        local offsetY = Helper.viewHeight / 2 - offsetY
-
-        local width = m.menu.tradeContext.width
-        local height = m.menu.tradeContext.shipheight + m.menu.tradeContext.buttonheight + 1 * Helper.borderSize
-
-        if offsetX + width > Helper.viewWidth - Helper.frameBorder then
-            offsetX = Helper.viewWidth - width - Helper.frameBorder
-        end
-        if offsetY + height > Helper.viewHeight - Helper.frameBorder then
-            offsetY = Helper.viewHeight - height - Helper.frameBorder
+        -- Figure out if this is a ship with repeat orders.
+        local isSingleLoopShip, ship
+        if m.menu.getNumSelectedComponents() == 1 then
+            local shipComponent = next(m.menu.selectedcomponents)
+            shipID = ConvertStringTo64Bit(shipComponent)
+            local hasLoop = ffi.new("bool[1]", 0)
+            C.GetOrderQueueFirstLoopIdx(shipID, hasLoop)
+            isSingleLoopShip = hasLoop[0]
         end
 
-        m.menu.createContextFrame(width, height, offsetX, offsetY)
+        if isSingleLoopShip then
+            m.menu.contextMenuMode = "tradeloop"
+            m.menu.contextMenuData = {
+                component = ConvertIDTo64Bit(offer.station),
+                currentShip = shipID,
+                orders = {},
+                loop = offer.type == enum.offertype.buy and "SingleSell" or "SingleBuy",
+                ware = offer.ware,
+                reservecargo = true
+            }
 
+            local offsetX, offsetY = GetLocalMousePosition()
+            local offsetX = offsetX + Helper.viewWidth / 2
+            local offsetY = Helper.viewHeight / 2 - offsetY
+
+            m.menu.createContextFrame(Helper.scaleX(m.menuConfig.tradeLoopWidth), nil, offsetX, offsetY)
+
+        else
+            m.menu.contextMenuMode = "trade"
+            m.menu.contextMenuData = { component = ConvertIDTo64Bit(offer.station), orders = {}, tradeid = offer.id }
+            local wareRowsCount, infoRowsCount = m.menu.initTradeContextData()
+            m.menu.updateTradeContextDimensions(wareRowsCount, infoRowsCount)
+
+            AddUITriggeredEvent(m.menu.name, "pickedtradeoffer", offer.type == enum.offertype.buy and "buyoffer" or "selloffer")
+
+            local offsetX, offsetY = GetLocalMousePosition()
+            local offsetX = offsetX + Helper.viewWidth / 2
+            local offsetY = Helper.viewHeight / 2 - offsetY
+
+            local width = m.menu.tradeContext.width
+            local height = m.menu.tradeContext.shipheight + m.menu.tradeContext.buttonheight + 1 * Helper.borderSize
+
+            if offsetX + width > Helper.viewWidth - Helper.frameBorder then
+                offsetX = Helper.viewWidth - width - Helper.frameBorder
+            end
+            if offsetY + height > Helper.viewHeight - Helper.frameBorder then
+                offsetY = Helper.viewHeight - height - Helper.frameBorder
+            end
+
+            m.menu.createContextFrame(width, height, offsetX, offsetY)
+        end
     else
         local playerShips, otherObjects, playerDeployables = m.menu.getSelectedComponentCategories()
         if not C.IsControlPressed() then
