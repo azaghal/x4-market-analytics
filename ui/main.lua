@@ -254,8 +254,8 @@ function m.createMenu()
 
     local verticalOffset = 0
 
-    local titleTable = m.createHeaderTable(m.menu.infoFrame2, 0, verticalOffset)
-    verticalOffset = verticalOffset + titleTable:getVisibleHeight() + Helper.borderSize * 2
+    local headerTable = m.createHeaderTable(m.menu.infoFrame2, 0, verticalOffset)
+    verticalOffset = verticalOffset + headerTable:getVisibleHeight() + Helper.borderSize * 2
 
     local controlsTable = m.createControlsTable(m.menu.infoFrame2, 0, verticalOffset)
     verticalOffset = verticalOffset + controlsTable:getVisibleHeight() + Helper.borderSize * 2
