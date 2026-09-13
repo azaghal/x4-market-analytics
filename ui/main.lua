@@ -148,6 +148,8 @@ function m.init()
     -- UI Extensions and HUD events.
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
     m.menu.registerCallback("createInfoFrame2_on_menu_infoModeRight", m.createMenu)
+    m.menu.registerCallback("ic_onTableRightMouseClick", m.onTableRightMouseClick)
+    m.menu.registerCallback("ic_onSelectElement", m.onTableRowSelect)
 
     -- Store references to original functions.
     m.original.setSectorFilter = m.menu.setSectorFilter
@@ -263,6 +265,8 @@ function m.createMenu()
 
     local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset
     local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
+
+    m.widgets.waresTable = waresTable
 
     m.updateOffers(offersPageSize, false, false, false)
     m.renderOffers(waresTable)
@@ -572,7 +576,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
         #m.config.wareColumns,
         {
             tabOrder = 1,
-            highlightMode = "off",
+            highlightMode = "on",
             backgroundID = "solid",
             backgroundColor = Helper.color.semitransparent,
             reserveScrollBar = false,
@@ -680,7 +684,7 @@ function m.renderOffers(ftable)
 
     for index = from, to do
         local offer = m.state.filteredOffers[index]
-        local row = ftable:addRow(true, { fixed = true })
+        local row = ftable:addRow(offer)
         row[1]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
         row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
         row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}, true) end
@@ -746,6 +750,7 @@ function m.getTradeOffers()
                 table.insert(
                     offers,
                     {
+                        id = trade.id,
                         faction = stationOwner,
                         factionText = factionText,
                         factionName = trade.factionname,
@@ -1442,6 +1447,85 @@ function m.truncateText(text, width, font, fontSize)
     local truncatedText = TruncateText(text, font, fontSize, width)
 
     return truncatedText, text ~= truncatedText and text or nil
+end
+
+
+--- Handles right mouse button clicks on table rows.
+--
+-- @param tableID number Table widget ID.
+-- @param rowID number Row widget ID.
+-- @param posX number|nil Horisontal position, but seem to be nil for actual mouse click?
+-- @param posY number|nil Vertical position, but seem to be nil for actual mouse click?
+--
+function m.onTableRightMouseClick(tableID, rowID, posx, posy)
+    if m.menu.searchTableMode ~= "marketanalytics" or tableID ~= m.widgets.waresTable.id then
+        return
+    end
+
+    local offer = Helper.getCurrentRowData(m.menu, tableID)
+
+    -- Show the trade menu to player.
+    if C.IsControlPressed() then
+        m.menu.contextMenuMode = "trade"
+        m.menu.contextMenuData = { component = ConvertIDTo64Bit(offer.station), orders = {}, tradeid = offer.id }
+        local wareRowsCount, infoRowsCount = m.menu.initTradeContextData()
+        m.menu.updateTradeContextDimensions(wareRowsCount, infoRowsCount)
+
+        AddUITriggeredEvent(m.menu.name, "pickedtradeoffer", offer.isbuyoffer and "buyoffer" or "selloffer")
+
+        local offsetX, offsetY = GetLocalMousePosition()
+        local offsetX = offsetX + Helper.viewWidth / 2
+        local offsetY = Helper.viewHeight / 2 - offsetY
+
+        local width = m.menu.tradeContext.width
+        local height = m.menu.tradeContext.shipheight + m.menu.tradeContext.buttonheight + 1 * Helper.borderSize
+
+        if offsetX + width > Helper.viewWidth - Helper.frameBorder then
+            offsetX = Helper.viewWidth - width - Helper.frameBorder
+        end
+        if offsetY + height > Helper.viewHeight - Helper.frameBorder then
+            offsetY = Helper.viewHeight - height - Helper.frameBorder
+        end
+
+        m.menu.createContextFrame(width, height, offsetX, offsetY)
+
+    else
+        local playerShips, otherObjects, playerDeployables = m.menu.getSelectedComponentCategories()
+        if not C.IsControlPressed() then
+            Helper.openInteractMenu(m.menu,
+                {
+                    component = offer.station,
+                    playerships = playerShips,
+                    otherobjects = otherObjects,
+                    playerdeployables = playerDeployables,
+                    selectedfleetunit = nil,
+                    selectedreplacingcontrollable = nil,
+                    mouseX = nil,
+                    mouseY = nil,
+                    componentmissions = {},
+                    behaviourInspectionComponent = m.menu.behaviourInspectionComponent
+            })
+            return
+        end
+    end
+end
+
+
+--- Handles row selection - primarily for double-clicks in order to focus station.
+--
+-- @param tableID number Table widget ID.
+-- @param modified any No idea what this is.
+-- @param rowID number|nil Row widget ID.
+-- @param isDoubleClick bool|nil Whether the row was double-click or not.
+-- @param input string|nil Input device that triggered the row selection (for example "mouse").
+--
+function m.onTableRowSelect(tableID, modified, rowID, isDoubleClick, input)
+    if m.menu.searchTableMode == "marketanalytics" and tableID == m.widgets.waresTable.id then
+        local offer = Helper.getCurrentRowData(m.menu, tableID)
+        if offer and isDoubleClick then
+            C.SetFocusMapComponent(m.menu.holomap, ConvertStringTo64Bit(tostring(offer.station)), true)
+        end
+    end
 end
 
 
