@@ -737,6 +737,10 @@ function m.getTradeOffers()
         for _, station in ipairs(stations) do
             local trades = GetTradeList(station) or {}
             local stationOwner = GetComponentData(station, "owner")
+
+            -- @NOTE: None of these should have any trades available.
+            if stationOwner == "ownerless" then break end
+
             local stationOwnerIcon, stationOwnerColor = m.cache.factions[stationOwner].icon, m.cache.factions[stationOwner].color
             for _, trade in ipairs(trades) do
                 local averagePrice = GetWareData(trade.ware, "avgprice")
@@ -1274,6 +1278,14 @@ function m.updateCache(cache)
             faction.isenemy, faction.color = GetFactionData(faction.id, "isenemy", "color")
             m.cache.factions[faction.id] = faction
         end
+
+        -- @NOTE: These factions are marked as hidden, but can still have trades available.
+        for _, faction in ipairs({ "civilian" }) do
+            local faction = { id = faction }
+            faction.name, faction.icon, faction.color, faction.isenemy =
+                GetFactionData(faction.id, "name", "icon", "color", "isenemy")
+            m.cache.factions[faction.id] = faction
+         end
     end
 
     -- @NOTE: Requires the game to finish loading.
