@@ -1040,11 +1040,11 @@ function m.createValuePicker(x, y, width, title, options, callback)
         }
     )
 
-    local row = ftable:addRow(true)
+    local row = ftable:addRow(true, { fixed = true })
     row[1]:createText(title, Helper.headerRowCenteredProperties)
 
     for _, option in ipairs(options) do
-        row = ftable:addRow(true, { fixed = true })
+        row = ftable:addRow(true)
         row[1]:createButton({ bgColor = option.state and Color["button_highlight_default"] or Color["button_background_default"] })
         row[1]:setText(option.text, { halign = "center" })
         row[1].handlers.onClick = function()
