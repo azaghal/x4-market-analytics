@@ -680,7 +680,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
 
     -- Separator line.
     row = ftable:addRow(false)
-    row[1]:setColSpan(9):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+    row[1]:setColSpan(#m.config.wareColumns):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
 
     return ftable
 end
