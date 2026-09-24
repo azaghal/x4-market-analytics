@@ -615,7 +615,8 @@ function m.createWaresTable(frame, offsetX, offsetY)
         if m.state.sortParametersBy[column.sortProperty] then
             local arrow = m.state.sortParametersBy[column.sortProperty].ascending and "\27[widget_arrow_down_01]" or "\27[widget_arrow_up_01]"
             local priority = m.state.sortParametersBy[column.sortProperty].priority
-            button:setText2(string.format("%s%s", m.config.sortOrderIndicators[priority] or "", arrow), { halign = "right", fontsize = Helper.standardFontSize * 3/4 })
+            local sortIndicator = string.format("%s%s", m.config.sortOrderIndicators[priority] or "", arrow)
+            button:setText2(sortIndicator, { halign = "right", fontsize = Helper.standardFontSize * 3/4 })
         end
 
         -- Sort offers by clicked column. Reverse sorting order on subsequent clicks.
@@ -1320,7 +1321,7 @@ function m.updateCache(cache)
 
         -- @NOTE: These factions are marked as hidden, but can still have trades available.
         for _, faction in ipairs({ "civilian" }) do
-            local faction = { id = faction }
+            faction = { id = faction }
             faction.name, faction.icon, faction.color, faction.isenemy =
                 GetFactionData(faction.id, "name", "icon", "color", "isenemy")
             m.cache.factions[faction.id] = faction
@@ -1510,7 +1511,7 @@ end
 -- @param posX number|nil Horisontal position, but seem to be nil for actual mouse click?
 -- @param posY number|nil Vertical position, but seem to be nil for actual mouse click?
 --
-function m.onTableRightMouseClick(tableID, rowID, posx, posy)
+function m.onTableRightMouseClick(tableID, _rowID, _posx, _posy)
     if m.menu.searchTableMode ~= "marketanalytics" or tableID ~= m.widgets.waresTable.id then
         return
     end
@@ -1520,11 +1521,11 @@ function m.onTableRightMouseClick(tableID, rowID, posx, posy)
     -- Show the trade menu to player.
     if C.IsControlPressed() then
         -- Figure out if this is a ship with repeat orders.
-        local isSingleLoopShip, ship
+        local isSingleLoopShip, shipID
         if m.menu.getNumSelectedComponents() == 1 then
             local shipComponent = next(m.menu.selectedcomponents)
-            shipID = ConvertStringTo64Bit(shipComponent)
             local hasLoop = ffi.new("bool[1]", 0)
+            shipID = ConvertStringTo64Bit(shipComponent)
             C.GetOrderQueueFirstLoopIdx(shipID, hasLoop)
             isSingleLoopShip = hasLoop[0]
         end
@@ -1541,8 +1542,8 @@ function m.onTableRightMouseClick(tableID, rowID, posx, posy)
             }
 
             local offsetX, offsetY = GetLocalMousePosition()
-            local offsetX = offsetX + Helper.viewWidth / 2
-            local offsetY = Helper.viewHeight / 2 - offsetY
+            offsetX = offsetX + Helper.viewWidth / 2
+            offsetY = Helper.viewHeight / 2 - offsetY
 
             m.menu.createContextFrame(Helper.scaleX(m.menuConfig.tradeLoopWidth), nil, offsetX, offsetY)
 
@@ -1555,8 +1556,8 @@ function m.onTableRightMouseClick(tableID, rowID, posx, posy)
             AddUITriggeredEvent(m.menu.name, "pickedtradeoffer", offer.type == enum.offertype.buy and "buyoffer" or "selloffer")
 
             local offsetX, offsetY = GetLocalMousePosition()
-            local offsetX = offsetX + Helper.viewWidth / 2
-            local offsetY = Helper.viewHeight / 2 - offsetY
+            offsetX = offsetX + Helper.viewWidth / 2
+            offsetY = Helper.viewHeight / 2 - offsetY
 
             local width = m.menu.tradeContext.width
             local height = m.menu.tradeContext.shipheight + m.menu.tradeContext.buttonheight + 1 * Helper.borderSize
@@ -1602,7 +1603,7 @@ end
 -- @param isDoubleClick bool|nil Whether the row was double-click or not.
 -- @param input string|nil Input device that triggered the row selection (for example "mouse").
 --
-function m.onTableRowSelect(tableID, modified, rowID, isDoubleClick, input)
+function m.onTableRowSelect(tableID, _modified, _rowID, isDoubleClick, _input)
     if m.menu.searchTableMode == "marketanalytics" and tableID == m.widgets.waresTable.id then
         local offer = Helper.getCurrentRowData(m.menu, tableID)
         if offer and isDoubleClick then

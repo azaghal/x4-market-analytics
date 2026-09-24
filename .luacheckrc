@@ -14,6 +14,8 @@ globals = {
     "__CORE_DETAILMONITOR_MAPFILTER_SAVE",
 
     -- Functions
+    "AddUITriggeredEvent",
+    "ConvertIDTo64Bit",
     "ConvertMoneyString",
     "ConvertStringTo64Bit",
     "ConvertStringToLuaID",
@@ -22,13 +24,14 @@ globals = {
     "GetClusters",
     "GetComponentData",
     "GetContainedStations",
+    "getElement",
     "GetFactionData",
     "GetLibrary",
+    "GetLocalMousePosition",
     "GetSectors",
     "GetTradeList",
     "GetWareData",
     "ReadText",
     "registerForEvent",
-    "getElement",
     "TruncateText",
 }
