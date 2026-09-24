@@ -31,8 +31,10 @@ local m = {}
 
 -- Tracks original menu functions.
 m.original = {}
+m.original.interact = {}
 -- Overrides for original menu function.
 m.override = {}
+m.override.interact = {}
 -- Filter functions for trade offers.
 m.filter = {}
 
@@ -134,6 +136,10 @@ m.config = {
 
     -- Upper limit for the maximum distance filter.
     maxDistanceFilterLimit = 10,
+
+    -- Upper limit for maximum offers per page in order to avoid hitting the widget system maximum number of button elements (200 at time of this writing). Each
+    -- rendered offer adds 3 buttons to the UI, so hopefully the leftover should be sufficient to handle the rest of the shown UI.
+    maxOffersPageSize = 40,
 }
 
 
@@ -142,6 +148,9 @@ m.config = {
 function m.init()
     m.menu = Helper.getMenu("MapMenu")
     m.menuConfig = m.menu.uix_getConfig()
+
+    m.interactMenu = Helper.getMenu("InteractMenu")
+    m.interactMenuConfig = m.interactMenu.uix_getConfig()
 
     m.initData()
 
@@ -156,12 +165,16 @@ function m.init()
     m.original.filterTradeWares = m.menu.filterTradeWares
     m.original.filterTradeVolume = m.menu.filterTradeVolume
     m.original.filterTradeRelation = m.menu.filterTradeRelation
+    m.original.closeContextMenu = m.menu.closeContextMenu
+    m.original.interact.onCloseElement = m.interactMenu.onCloseElement
 
     -- Override original functions with custom implementation.
     m.menu.setSectorFilter = m.override.setSectorFilter
     m.menu.filterTradeWares = m.override.filterTradeWares
     m.menu.filterTradeVolume = m.override.filterTradeVolume
     m.menu.filterTradeRelation = m.override.filterTradeRelation
+    m.menu.closeContextMenu = m.override.closeContextMenu
+    m.interactMenu.onCloseElement = m.override.interact.onCloseElement
 end
 
 
@@ -264,7 +277,8 @@ function m.createMenu()
     verticalOffset = verticalOffset + waresTable:getVisibleHeight() + Helper.borderSize * 2
 
     local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset
-    local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize))
+    local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(m.menuConfig.mapRowHeight) + Helper.borderSize))
+    offersPageSize = math.min(offersPageSize, m.config.maxOffersPageSize)
 
     m.widgets.waresTable = waresTable
     -- Piggyback off of vanilla menu row tracking.
@@ -687,29 +701,53 @@ function m.renderOffers(ftable)
     for index = from, to do
         local offer = m.state.filteredOffers[index]
         local row = ftable:addRow(offer)
-        row[1]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
-        row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
-        row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}, true) end
+
+        -- @NOTE: Align rendered text when switching between button and text widget
+        --     These properties are applied against replacement text widgets used when context menu or interaction menu are shown (as part of the 200-button
+        --     limit workaround).
+        local textAlignmentCorrection = {
+            x = 2,
+            y = math.floor(1 * Helper.uiScale),
+            height = Helper.scaleY(m.menuConfig.mapRowHeight) - math.floor(1 * Helper.uiScale),
+            fontsize = Helper.scaleFont(Helper.standardFont, Helper.standardFontSize),
+            scaling = false,
+        }
+
+        if m.menu.contextMenuMode or Helper.interactMenuActive then
+            row[1]:createText(offer.factionText, textAlignmentCorrection)
+        else
+            row[1]:createButton({ height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
+            row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
+            row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}, true) end
+        end
 
         row[2]:createText(offer.stationText)
 
-        local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth())
-        row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
-        row[3].handlers.onClick = function()
-            if C.IsControlPressed() then
-                m.setReferenceSector(offer.sector)
-            else
-                m.setSectorFilter({{id = offer.sector, state = true}})
+        if m.menu.contextMenuMode or Helper.interactMenuActive then
+            row[3]:createText(offer.sectorText, textAlignmentCorrection)
+        else
+            local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth() - textAlignmentCorrection.x)
+            row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
+            row[3].handlers.onClick = function()
+                if C.IsControlPressed() then
+                    m.setReferenceSector(offer.sector)
+                else
+                    m.setSectorFilter({{id = offer.sector, state = true}})
+                end
             end
+            row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}, true) end
         end
-        row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}, true) end
 
         row[4]:createText(offer.distanceText, { halign = "right" })
 
-        truncatedText, mouseOverText = m.truncateText(offer.wareText, row[3]:getWidth())
-        row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
-        row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
-        row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}, true) end
+        if m.menu.contextMenuMode or Helper.interactMenuActive then
+            row[5]:createText(offer.wareText, textAlignmentCorrection)
+        else
+            local truncatedText, mouseOverText = m.truncateText(offer.wareText, row[5]:getWidth() - textAlignmentCorrection.x)
+            row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
+            row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
+            row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}, true) end
+        end
 
         row[6]:createText(offer.typeText)
         row[7]:createText(offer.priceText, { halign = "right" })
@@ -1001,6 +1039,7 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
 
     m.menu.contextMenuMode = "marketanalytics-multivaluepicker"
     m.menu.contextFrame = frame
+    m.menu.refreshInfoFrame2()
     m.menu.contextFrame:display()
 end
 
@@ -1055,6 +1094,7 @@ function m.createValuePicker(x, y, width, title, options, callback)
 
     m.menu.contextMenuMode = "marketanalytics-valuepicker"
     m.menu.contextFrame = frame
+    m.menu.refreshInfoFrame2()
     m.menu.contextFrame:display()
 end
 
@@ -1530,6 +1570,7 @@ function m.onTableRightMouseClick(tableID, rowID, posx, posy)
             end
 
             m.menu.createContextFrame(width, height, offsetX, offsetY)
+            m.menu.refreshInfoFrame2()
         end
     else
         local playerShips, otherObjects, playerDeployables = m.menu.getSelectedComponentCategories()
@@ -1547,6 +1588,7 @@ function m.onTableRightMouseClick(tableID, rowID, posx, posy)
                     componentmissions = {},
                     behaviourInspectionComponent = m.menu.behaviourInspectionComponent
             })
+            m.menu.refreshInfoFrame2()
             return
         end
     end
@@ -1790,6 +1832,34 @@ function m.override.filterTradeVolume(...)
     if m.state.filteredOffers then
         m.updateOffers(m.state.pageSize, false, true, true)
     end
+    if m.menu.searchTableMode == "marketanalytics" then
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Refresh the Market Analytics menu in order to re-enable filter buttons.
+--
+function m.override.closeContextMenu(...)
+    local refresh =
+        m.menu.searchTableMode == "marketanalytics" and true or
+        false
+
+    local result = m.original.closeContextMenu(...)
+
+    if refresh then
+        m.menu.refreshInfoFrame2()
+    end
+
+    return result
+end
+
+
+--- Refresh the Market Analytics menu in order to re-enabled filter buttons.
+--
+function m.override.interact.onCloseElement(...)
+    m.original.interact.onCloseElement(...)
+
     if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()
     end
