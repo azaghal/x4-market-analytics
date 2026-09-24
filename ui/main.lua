@@ -129,10 +129,9 @@ m.config = {
         { property = "amount", ascending = true },
     },
 
-    -- @TODO: The fucking font implements superscript only for digits 1, 2, and 3
-    --     (facepalm) Unbelievable... Find an alternative way to mark the order instead...
+    -- @NOTE: Cannot use ¹²³⁴⁵⁶⁷⁸⁹ due to lack of unicode support in shipped font (only ¹²³ are available)
     -- Column indicators when sorting by player-indicated order.
-    sortOrderIndicators = {"¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"},
+    sortOrderIndicators = {"1", "2", "3", "4", "5", "6", "7", "8", "9"},
 
     -- Upper limit for the maximum distance filter.
     maxDistanceFilterLimit = 10,
@@ -616,7 +615,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
         if m.state.sortParametersBy[column.sortProperty] then
             local arrow = m.state.sortParametersBy[column.sortProperty].ascending and "\27[widget_arrow_down_01]" or "\27[widget_arrow_up_01]"
             local priority = m.state.sortParametersBy[column.sortProperty].priority
-            button:setText2(string.format("%s%s", m.config.sortOrderIndicators[priority] or "", arrow), { halign = "right" })
+            button:setText2(string.format("%s%s", m.config.sortOrderIndicators[priority] or "", arrow), { halign = "right", fontsize = Helper.standardFontSize * 3/4 })
         end
 
         -- Sort offers by clicked column. Reverse sorting order on subsequent clicks.
