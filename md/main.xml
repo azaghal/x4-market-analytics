@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<mdscript name="MarketAnalytics" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+
+    <!-- Enables help overlay for the passed-in IDs. -->
+    <cue name="ShowHelp" instantiate="true">
+      <conditions>
+        <event_ui_triggered screen="'MarketAnalytics'" control="'show_help'"/>
+      </conditions>
+      <actions>
+        <remove_help_overlay all="true"/>
+        <do_for_each name="$id" in="event.param3">
+          <show_help_overlay id="$id"/>
+        </do_for_each>
+      </actions>
+    </cue>
+
+    <!-- Hides help overlay. -->
+    <cue name="HideHelp" instantiate="true">
+      <conditions>
+        <event_ui_triggered screen="'MarketAnalytics'" control="'hide_help'"/>
+      </conditions>
+      <actions>
+        <remove_help_overlay all="true"/>
+      </actions>
+    </cue>
+
+    <!-- Sync up with global help overlay state (triggered via frame standard button). -->
+    <cue name="HideHelpGlobal" instantiate="true">
+      <conditions>
+        <event_ui_triggered screen="'helpoverlay'" control="'hidden'"/>
+      </conditions>
+      <actions>
+        <raise_lua_event name="'MarketAnalytics:helpOverlayHidden'"/>
+      </actions>
+    </cue>
+
+  </cues>
+</mdscript>

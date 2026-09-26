@@ -32,6 +32,7 @@ globals = {
     "GetTradeList",
     "GetWareData",
     "ReadText",
+    "RegisterEvent",
     "registerForEvent",
     "TruncateText",
 }

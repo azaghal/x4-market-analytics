@@ -139,6 +139,120 @@ m.config = {
     -- Upper limit for maximum offers per page in order to avoid hitting the widget system maximum number of button elements (200 at time of this writing). Each
     -- rendered offer adds 3 buttons to the UI, so hopefully the leftover should be sufficient to handle the rest of the shown UI.
     maxOffersPageSize = 40,
+
+    help = {
+        referenceSector = {
+            id = "MarketAnalytics:referenceSector",
+            text = "Trade offer distances are measured in system jumps (large hexagons) relative to reference sector.",
+        },
+        resetReferenceSector = {
+            id = "MarketAnalytics:resetReferenceSector",
+            text = "Resets reference sector to player's current sector.",
+        },
+        resetSettings = {
+            id = "MarketAnalytics:resetSettings",
+            text = "Resets all settings (reference sector, filters etc).",
+        },
+        refreshOffers = {
+            id = "MarketAnalytics:refreshOffers",
+            text = "Refresh all trade offers.",
+        },
+        offersAge = {
+            id = "MarketAnalytics:offersAge",
+            text = string.format(
+                [[
+Shows how outdated the trade offers are (trade offers are not updated in real-time for performance reasons).
+
+Trade offer age is color-coded based on the following thresholds:
+
+    %sup to 2 minutes
+    %sup to 5 minutes
+    %sup to 15 minutes
+    %sover 15 minutes]],
+                Helper.convertColorToText(Color["text_normal"]),
+                Helper.convertColorToText(Color["text_neutral"]),
+                Helper.convertColorToText(Color["text_warning"]),
+                Helper.convertColorToText(Color["text_negative"])
+            ),
+        },
+        pageControls = {
+            id = "MarketAnalytics:pageControls",
+            text = "Trade offers are split across multiple pages if they cannot fit on the screen. Previous/next buttons wrap around to last/first page.",
+        },
+        sorting = {
+            id = "MarketAnalytics:sorting",
+            text = [[
+Left-click a column to select the first column to sort the trade offers by or to switch between ascending and descending order.
+
+Right-click additional columns to set/unset additional columns to use for sorting the trade offers.]],
+            width = "table",
+        },
+        sortingDistance = {
+            id = "MarketAnalytics:sortingDistance",
+            text = "Distance is measured in number of jumps between systems (large hexagons).",
+        },
+        sortingMarkup = {
+            id = "MarketAnalytics:offerMarkup",
+            text = [[
+Markup denotes how offer price stands compared to the average price.
+
+Sorting order for markup is relative to offer type. A "buys" offer at +20% markup and a "sells" offer at -20% markup have the same weight.]],
+        },
+        filters = {
+            id = "MarketAnalytics:filters",
+            text = [[
+This row contains filter settings.
+
+Filters can be used to narrow down the trade offers.
+
+Right-click a filter to clear it.
+
+Trade offer filters are kept in sync with the map filters where possible (sectors, wares, trade volume).]],
+            width = "table",
+        },
+        volumeFilter = {
+            id = "MarketAnalytics:volumeFilter",
+            text = "Filters wares by minimum total volume (amount multiplied by ware volume). Click to toggle between: none, low, medium, high",
+        },
+        offerFactionFilterButton = {
+            id = "MarketAnalytics:offerFactionFilterButton",
+            text = [[
+Faction filter can also be changed by left-clicking or right-clicking highlighted value.
+
+Left-click sets the filter to the highlighted value.s
+
+Right-click excludes the highlighted value.]],
+        },
+        offerSectorFilterButton = {
+            id = "MarketAnalytics:offerSectorFilterButton",
+            text = [[
+Sector filter can also be changed by left-clicking or right-clicking highlighted value.
+
+Left-click sets the filter to the highlighted value.
+
+Right-click excludes the highlighted value.]],
+        },
+        offerWareFilterButton = {
+            id = "MarketAnalytics:offerWareFilterButton",
+            text = [[
+Ware filter can also be changed by left-clicking or right-clicking highlighted value.
+
+Left-click sets the filter to the highlighted value.
+
+Right-click excludes the highlighted value.]],
+        },
+        offerStationInteraction = {
+            id = "MarketAnalytics:offerInteraction",
+            text = [[
+Interact with stations directly from the menu.
+
+Double-click to focus it on the map.
+
+Right-click to bring up the interaction menu.
+
+Control + right-click to bring up the trade menu.]],
+        }
+    },
 }
 
 
@@ -152,6 +266,9 @@ function m.init()
     m.interactMenuConfig = m.interactMenu.uix_getConfig()
 
     m.initData()
+
+    -- @NOTE: Sync up with global help overlay state (triggered via frame standard button).
+    RegisterEvent("MarketAnalytics:helpOverlayHidden", function() m.state.showHelp = false end)
 
     -- UI Extensions and HUD events.
     m.menu.registerCallback("createRightBar_on_start", m.registerRightBar)
@@ -199,6 +316,7 @@ function m.initData()
             type = 0,
         },
         referenceSector = ConvertStringToLuaID(tostring(playerSector)),
+        showHelp = false,
     }
 
     -- Make parameters accessible by sort property.
@@ -336,9 +454,9 @@ end
 --
 function m.createHeaderTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
-        1,
+        5,
         {
-            tabOrder = 0,
+            tabOrder = 1,
             highlightMode = "off",
             backgroundID = "solid",
             backgroundColor = Color["frame_background_semitransparent"],
@@ -348,8 +466,21 @@ function m.createHeaderTable(frame, offsetX, offsetY)
         }
     )
 
-    local row = ftable:addRow(false, { bgColor = Helper.defaultTitleBackgroundColor, fixed = true })
-    row[1]:createText("Market Analytics", Helper.headerRowCenteredProperties)
+
+    ftable:setColWidth(1, Helper.headerRowCenteredProperties.height)
+    ftable:setColWidth(5, Helper.headerRowCenteredProperties.height)
+
+    local row = ftable:addRow(true, { fixed = true })
+    row[3]:createText("Market Analytics", Helper.headerRowCenteredProperties)
+    row[3].properties.titleColor = nil
+
+    row[5]:createButton({ bgColor = Color["row_background"], mouseOverText = "Toggle Market Analytics interface overview" })
+    row[5]:setText("?", { font = Helper.headerRowCenteredProperties.font, fontsize = Helper.headerRowCenteredProperties.fontsize, halign = "center" })
+    row[5].handlers.onClick = m.toggleHelp
+
+    -- Separator line.
+    row = ftable:addRow(false)
+    row[1]:setColSpan(5):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
 
     return ftable
 end
@@ -382,6 +513,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
     -- =====================
     local row = ftable:addRow(true, { fixed = true })
     row[1]:setColSpan(3):createButton():setText(GetComponentData(m.state.referenceSector, "name"), { halign = "center" })
+    m.setHelp(row[1], "referenceSector")
     local pickerX = row.table.frame.properties.x + row[1]:getOffsetX()
     local pickerY = ftable.frame.properties.y + ftable.properties.y + ftable:getVisibleHeight()
     row[1].handlers.onClick = function()
@@ -393,6 +525,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
         m.createValuePicker(pickerX, pickerY, row[1]:setColSpan(3):getWidth(), "Select Reference Sector", options, m.setReferenceSector)
     end
     row[4]:createButton({ width = m.menuConfig.mapRowHeight + Helper.standardTextOffsetx }):setIcon("menu_reset_view")
+    m.setHelp(row[4], "resetReferenceSector")
     row[4].handlers.onClick = function()
         local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
         m.setReferenceSector(ConvertStringToLuaID(tostring(playerSector)))
@@ -400,10 +533,13 @@ function m.createControlsTable(frame, offsetX, offsetY)
 
     row[11]:createButton():setText("Reset", { halign = "center" })
     row[11].handlers.onClick = function() m.resetAllControls() end
+    m.setHelp(row[11], "resetSettings")
 
     row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
+    m.setHelp(row[12], "offersAge")
     m.widgets.offersAge = row[12]
     row[13]:createButton():setText("Refresh", { halign = "center" })
+    m.setHelp(row[13], "refreshOffers")
     row[13].handlers.onClick = function()
         m.updateOffers(m.state.pageSize, true, false, false)
         m.menu.refreshInfoFrame2()
@@ -422,6 +558,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
     m.widgets.previousPage = row[11]
 
     row[12]:createEditBox({ description = "description" }):setText("1 / 1", { halign = "center" })
+    m.setHelp(row[12], "pageControls")
     row[12].handlers.onEditBoxActivated = function(_)
         -- Prevent menu refresh while editing the text.
         m.menu.noupdate = true
@@ -464,6 +601,7 @@ function m.createFilterControls(ftable)
     -- Factions filter
     local filterText = m.getFilterText(m.filter.factions)
     row[1]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
+    m.setHelp(row[1], "filters")
     local pickerVerticalPosition = ftable.frame.properties.y + ftable.properties.y + ftable:getVisibleHeight()
     row[1].handlers.onClick = function()
         local options = {}
@@ -566,6 +704,7 @@ function m.createFilterControls(ftable)
 
     -- Amount filter by volume
     row[9]:createButton({bgColor = Color["row_background"]}):setText(filterText, { color = Color["text_normal"] })
+    m.setHelp(row[9], "volumeFilter")
     row[9]:setText(m.getFilterText(m.filter.mapTradeVolume), { halign = "right" })
     row[9].handlers.onClick = function()
         local volumeInfo = m.getTradeVolumeInfo() or m.getTradeVolumeInfo(0)
@@ -610,6 +749,14 @@ function m.createWaresTable(frame, offsetX, offsetY)
     for index, column in ipairs(m.config.wareColumns) do
         local button = row[index]:createButton()
         button:setText(column.title)
+
+        if column.id == "faction" then
+            m.setHelp(row[index], "sorting")
+        elseif column.id == "distance" then
+            m.setHelp(row[index], "sortingDistance")
+        elseif column.id == "markup" then
+            m.setHelp(row[index], "sortingMarkup")
+        end
 
         -- Adds sorting indicator cue for the player. Priority is used when player has explicitly selected secondary columns to use for sorting.
         if m.state.sortParametersBy[column.sortProperty] then
@@ -753,6 +900,14 @@ function m.renderOffers(ftable)
         row[7]:createText(offer.priceText, { halign = "right" })
         row[8]:createText(offer.markupText, { halign = "right" })
         row[9]:createText(offer.amountText, { halign = "right" })
+
+        -- Show help overlay via first displayed row only.
+        if index == from then
+            m.setHelp(row[1], "offerFactionFilterButton")
+            m.setHelp(row[2], "offerStationInteraction")
+            m.setHelp(row[3], "offerSectorFilterButton")
+            m.setHelp(row[5], "offerWareFilterButton")
+        end
     end
 end
 
@@ -1609,6 +1764,48 @@ function m.onTableRowSelect(tableID, _modified, _rowID, isDoubleClick, _input)
         if offer and isDoubleClick then
             C.SetFocusMapComponent(m.menu.holomap, ConvertStringTo64Bit(tostring(offer.station)), true)
         end
+    end
+end
+
+
+--- Sets help overlay properties for a particular widget.
+--
+-- Primarily used as synctatic sugar.
+--
+-- @param widget table Widget descriptor.
+-- @param reference string Reference key from the help configuration table (m.config.help).
+--
+function m.setHelp(widget, reference)
+    local help = m.config.help[reference]
+    if help then
+        widget.properties.helpOverlayID = help.id
+        widget.properties.helpOverlayText = help.text
+        widget.properties.helpOverlayWidth =
+            help.width == "table" and Helper.round(widget.row.table.properties.width / Helper.uiScale) or
+            help.width
+    end
+end
+
+
+--- Toggles menu help.
+--
+-- @NOTE: Vanilla help overlay has a hard-coded limit.
+--     Due to vanilla implementation hard-coded limit of 25 elements, it is not possible to rely on vanilla game's toggle help button which would display help
+--     overlay for all visible elements. Even with just the vanilla menus, it is trivial to exceed the maximum number of allowed elements. Because of this, we
+--     have to implement our own control (button) for showing menu-specific help overlay. This requires a bit of a juggling using both the XML and Lua scripting
+--     engines.
+--
+function m.toggleHelp()
+    if m.state.showHelp then
+        AddUITriggeredEvent("MarketAnalytics", "hide_help")
+        m.state.showHelp = false
+    else
+        local helpOverlayIDs = {}
+        for _, helpItem in pairs(m.config.help) do
+            table.insert(helpOverlayIDs, helpItem.id)
+        end
+        AddUITriggeredEvent("MarketAnalytics", "show_help", helpOverlayIDs)
+        m.state.showHelp = true
     end
 end
 
