@@ -610,12 +610,19 @@ function m.createFilterControls(ftable)
             -- The "name" property is only used for sorting, it is not required for multi-value picker.
             table.insert(options, { id = faction.id, name = faction.name, text = text, state = m.state.filters.factions[faction.id] })
         end
-
         table.sort(options, function(a, b) return a.name < b.name end)
+
+        local groups = {}
+        for _, group in pairs(m.getTradeGroups()) do
+            local text = string.format("%s\27[mapst_factionrelation] %s", Helper.convertColorToText(group.color), group.name)
+            -- The"name" property is only used for sorting, it is not required for mutli-value picker.
+            table.insert(groups, { name = group.name, text = text, ids = group.factions })
+        end
+        table.sort(groups, function(a, b) return a.name < b.name end)
 
         local x = row.table.frame.properties.x + row[1]:getOffsetX()
         local y = pickerVerticalPosition
-        m.createMultiValuePicker(x, y, row[1]:getWidth() + row[2]:getWidth(), "Select Factions", options, m.setFactionFilter)
+        m.createMultiValuePicker(x, y, row[1]:getWidth() + row[2]:getWidth(), "Select Factions", options, groups, m.setFactionFilter)
     end
     row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({}) end
 
@@ -628,7 +635,7 @@ function m.createFilterControls(ftable)
         table.sort(options, function(a, b) return a.state == b.state and a.text < b.text or a.state and not b.state or false end)
         local x = row.table.frame.properties.x + row[3]:getOffsetX()
         local y = pickerVerticalPosition
-        m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, m.setSectorFilter)
+        m.createMultiValuePicker(x, y, row[3]:getWidth() - Helper.borderSize, "Select Sectors", options, nil, m.setSectorFilter)
     end
     row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({}) end
 
@@ -675,7 +682,7 @@ function m.createFilterControls(ftable)
         table.sort(options, function(a, b) return a.state == b.state and a.text < b.text or a.state and not b.state or false end)
         local x = row.table.frame.properties.x + row[5]:getOffsetX()
         local y = pickerVerticalPosition
-        m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, m.setWareFilter)
+        m.createMultiValuePicker(x, y, row[5]:getWidth() - Helper.borderSize, "Select Wares", options, nil, m.setWareFilter)
     end
     row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({}) end
 
@@ -1133,9 +1140,10 @@ end
 -- @param width number Total menu width.
 -- @param title string Menu title to show in menu header.
 -- @param options [{ id = any, text = string, state = bool }] List of options to show.
+-- @param groups [{ text = string, ids = { id = bool } }] List of option groups to render.
 -- @param callback function([{id = any, state = bool}], append = bool) Callback function invoked when options change state.
 --
-function m.createMultiValuePicker(x, y, width, title, options, callback)
+function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
     local allOptionsEnabled = true
     for _, option in ipairs(options) do
         if not option.state then
@@ -1171,22 +1179,63 @@ function m.createMultiValuePicker(x, y, width, title, options, callback)
 
     ftable:setColWidth(1, m.menuConfig.mapRowHeight)
 
-    local row = ftable:addRow(true, { fixed = true })
+    -- All options toggle.
+    local row = ftable:addRow({}, { fixed = true })
     row[1]:createCheckBox(allOptionsEnabled, { height = m.menuConfig.mapRowHeight })
     row[1].handlers.onClick = function(_, state)
         local changes = {}
         for _, checkboxRow in ipairs(ftable.rows) do
-            C.SetCheckBoxChecked2(checkboxRow[1].id, state, true)
-            if checkboxRow.rowdata and checkboxRow.rowdata ~= true then
-                table.insert(changes, {id = checkboxRow.rowdata, state = state})
+            if checkboxRow.rowdata and checkboxRow.rowdata.id then
+                C.SetCheckBoxChecked2(checkboxRow[1].id, state, true)
+                table.insert(changes, {id = checkboxRow.rowdata.id, state = state})
             end
         end
         callback(changes)
     end
     row[2]:createText(title, Helper.headerRowCenteredProperties)
+    row[2].properties.titleColor = nil
 
+    -- Separator.
+    row = ftable:addRow(false, { fixed = true })
+    row[1]:setColSpan(2):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+
+    -- Group dropdown
+    if groups then
+        row = ftable:addRow({}, { fixed = true })
+        local dropdownOptions = {}
+        for i, group in ipairs(groups or {}) do
+            table.insert(dropdownOptions, { id = tostring(i), text = group.text, icon = "", displayremoveoption = false })
+        end
+        row[1]:setColSpan(2):createDropDown(
+            dropdownOptions,
+            {
+                startOption = "",
+                height = Helper.standardTextHeight,
+                bgColor = Color["row_background"],
+                highlightColor = Color["slider_arrow_click"],
+                textOverride = "By Group",
+            }
+        )
+        row[1].handlers.onDropDownConfirmed = function(_, id)
+            local group = groups[tonumber(id)]
+            local changes = {}
+            for _, checkboxRow in ipairs(ftable.rows) do
+                if checkboxRow.rowdata and checkboxRow.rowdata.id then
+                    C.SetCheckBoxChecked2(checkboxRow[1].id, group.ids[checkboxRow.rowdata.id], true)
+                    table.insert(changes, {id = checkboxRow.rowdata.id, state = group.ids[checkboxRow.rowdata.id]})
+                end
+            end
+            callback(changes)
+        end
+
+        -- Separator.
+        row = ftable:addRow(false, { fixed = true })
+        row[1]:setColSpan(2):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+    end
+
+    -- Individual option toggles.
     for _, option in ipairs(options) do
-        row = ftable:addRow(option.id)
+        row = ftable:addRow(option)
         row[1]:createCheckBox(option.state, { height = Helper.standardTextHeight, width = Helper.standardTextHeight })
         row[1].handlers.onClick = function(_, state) callback({{id = option.id, state = state}}, true) end
         row[2]:createText(option.text)
@@ -1807,6 +1856,71 @@ function m.toggleHelp()
         AddUITriggeredEvent("MarketAnalytics", "show_help", helpOverlayIDs)
         m.state.showHelp = true
     end
+end
+
+
+--- Generates list of trade groups with definitive faction membership information based on player's trade rules.
+--
+-- @return [{ id = number, name = string, color = { r = number, g = number, b = number, a = number }, factions = { <string> = bool } }]
+--     List of trade groups. The factions property defines membership in the group (true/false), with keys corresponding to faction ID.
+--
+function m.getTradeGroups()
+    local tradeGroups = {}
+
+    local tradeRules = {}
+    Helper.ffiVLA(tradeRules, "TradeRuleID", C.GetNumAllTradeRules, C.GetAllTradeRules)
+    for _, id in ipairs(tradeRules) do
+        local rule = ffi.new("TradeRuleInfo")
+        rule.numfactions = C.GetTradeRuleInfoCounts(id).numfactions
+        rule.factions = Helper.ffiNewHelper("const char*[?]", rule.numfactions)
+        if C.GetTradeRuleInfo(rule, id) then
+            local colorCount = 0
+            local group = {}
+            group.id = id
+            group.name = ffi.string(rule.name)
+            group.factions = {}
+            group.color = {r = 0, g = 0, b = 0, a = 100}
+
+            -- Set membership information for all known factions.
+            for _, faction in pairs(m.cache.factions) do
+                group.factions[faction.id] = not rule.iswhitelist
+                if not rule.iswhitelist then
+                    group.color.r = group.color.r + faction.color.r
+                    group.color.g = group.color.g + faction.color.g
+                    group.color.b = group.color.b + faction.color.b
+                    colorCount = colorCount + 1
+                end
+            end
+
+            for i = 0, rule.numfactions - 1 do
+                local factionID = ffi.string(rule.factions[i])
+                group.factions[factionID] = rule.iswhitelist
+                if not rule.iswhitelist then
+                    group.color.r = group.color.r - m.cache.factions[factionID].color.r
+                    group.color.g = group.color.g - m.cache.factions[factionID].color.g
+                    group.color.b = group.color.b - m.cache.factions[factionID].color.b
+                    colorCount = colorCount - 1
+                else
+                    group.color.r = group.color.r + m.cache.factions[factionID].color.r
+                    group.color.g = group.color.g + m.cache.factions[factionID].color.g
+                    group.color.b = group.color.b + m.cache.factions[factionID].color.b
+                    colorCount = colorCount + 1
+                end
+            end
+
+            group.color.r = math.floor(group.color.r / colorCount)
+            group.color.g = math.floor(group.color.g / colorCount)
+            group.color.b = math.floor(group.color.b / colorCount)
+
+            group.color.r = group.color.r < 255 and group.color.r or 255
+            group.color.g = group.color.g < 255 and group.color.g or 255
+            group.color.b = group.color.b < 255 and group.color.b or 255
+
+            table.insert(tradeGroups, group)
+        end
+    end
+
+    return tradeGroups
 end
 
 
