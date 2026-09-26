@@ -1225,6 +1225,16 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
                     table.insert(changes, {id = checkboxRow.rowdata.id, state = group.ids[checkboxRow.rowdata.id]})
                 end
             end
+
+            local allOptionsChecked = true
+            for _, checkboxRow in ipairs(ftable.rows) do
+                if checkboxRow.rowdata and checkboxRow.rowdata.id and not C.IsCheckBoxChecked(checkboxRow[1].id) then
+                    allOptionsChecked = false
+                    break
+                end
+            end
+            C.SetCheckBoxChecked2(ftable.rows[1][1].id, allOptionsChecked, true)
+
             callback(changes)
         end
 
@@ -1237,7 +1247,18 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
     for _, option in ipairs(options) do
         row = ftable:addRow(option)
         row[1]:createCheckBox(option.state, { height = Helper.standardTextHeight, width = Helper.standardTextHeight })
-        row[1].handlers.onClick = function(_, state) callback({{id = option.id, state = state}}, true) end
+        row[1].handlers.onClick = function(_, state)
+            local allOptionsChecked = true
+            for _, checkboxRow in ipairs(ftable.rows) do
+                if checkboxRow.rowdata and checkboxRow.rowdata.id and not C.IsCheckBoxChecked(checkboxRow[1].id) then
+                    allOptionsChecked = false
+                    break
+                end
+            end
+            C.SetCheckBoxChecked2(ftable.rows[1][1].id, allOptionsChecked, true)
+
+            callback({{id = option.id, state = state}}, true)
+        end
         row[2]:createText(option.text)
     end
 
