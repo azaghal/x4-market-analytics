@@ -1235,6 +1235,8 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
             end
             C.SetCheckBoxChecked2(ftable.rows[1][1].id, allOptionsChecked, true)
 
+            m.menu.closeContextMenu("close")
+
             callback(changes)
         end
 
