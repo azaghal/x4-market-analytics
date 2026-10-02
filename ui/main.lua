@@ -210,6 +210,10 @@ Right-click a filter to clear it.
 Trade offer filters are kept in sync with the map filters where possible (sectors, wares, trade volume).]],
             width = "table",
         },
+        markupFilter = {
+            id = "MarketAnalytics:markupFilter",
+            text = "Filters wares by setting the minimum positive markup value (from player perspective).",
+        },
         volumeFilter = {
             id = "MarketAnalytics:volumeFilter",
             text = "Filters wares by minimum total volume (amount multiplied by ware volume). Click to toggle between: none, low, medium, high",
@@ -314,6 +318,7 @@ function m.initData()
             minDistance = 0,
             maxDistance = m.config.maxDistanceFilterLimit,
             type = 0,
+            relativeMarkup = -50,
         },
         referenceSector = ConvertStringToLuaID(tostring(playerSector)),
         showHelp = false,
@@ -725,6 +730,31 @@ function m.createFilterControls(ftable)
     row[6].handlers.onDropDownConfirmed = function(_, id)
         m.menu.noupdate = nil
         m.setTypeFilter(tonumber(id))
+    end
+
+    -- Relative markup
+    local markupOptions = {}
+    for i = 50, -50, -10 do
+        local color = m.interpolateColor(i, -50, 0, 50, Color["text_price_bad"], Color["text_price_average"], Color["text_price_good"])
+
+        local optionTextColor = Helper.convertColorToText(color)
+        local optionText = string.format("%s%s%%", optionTextColor, math.abs(i))
+        table.insert(markupOptions, { id = tostring(i), text = optionText, icon = "", displayremoveoption = false })
+    end
+    row[8]:createDropDown(
+        markupOptions,
+        {
+            startOption = tostring(m.state.filters.relativeMarkup),
+            height = Helper.standardButtonHeight,
+            bgColor = Color["row_background"],
+        }
+    )
+    row[8]:setTextProperties({ color = Color["text_normal"], halign = "right" })
+    m.setHelp(row[8], "markupFilter")
+    row[8].handlers.onDropDownActivated = function() m.menu.noupdate = true end
+    row[8].handlers.onDropDownConfirmed = function(_, id)
+        m.menu.noupdate = nil
+        m.setMarkupFilter(tonumber(id))
     end
 
     -- Amount filter by volume
@@ -1680,6 +1710,18 @@ function m.setTypeFilter(type_)
 end
 
 
+--- Sets the relative markup filter.
+--
+-- @param relativeMarkup number Relative markup threshold.
+--
+function m.setMarkupFilter(relativeMarkup)
+    m.state.filters.relativeMarkup = relativeMarkup or -50
+
+    m.updateOffers(m.state.pageSize, false, true, true)
+    m.menu.refreshInfoFrame2()
+end
+
+
 --- Sets the trade volume filter.
 --
 -- @param volume number|nil Trade volume to set the filter to. nil resets the filter to default value.
@@ -1965,6 +2007,87 @@ function m.getTradeGroups()
 end
 
 
+--- Interpolates color for passed-in value to visualize its offset from the average value.
+--
+-- @NOTE: Implementation effectively copied over from Helper.interpolatePriceColor.
+--
+-- @param val number Value to interpolate the color for. Should sit in-between minimum and maximum.
+-- @param min number Minimum possible value.
+-- @param max number Maximum possible value.
+-- @param avg number Value to be considered the median/aveage. Should sit in-between minimum and maximum.
+-- @param minColor { r = number, g = number, b = number, a = number } Color used for minimum value.
+-- @param avgColor { r = number, g = number, b = number, a = number } Color used for average value.
+-- @param maxColor { r = number, g = number, b = number, a = number } Color used for maximum value.lw
+-- @param baseColor { r = number, g = number, b = number, a = number } Base color to mix in. Can be used to produce darker colours.
+--
+-- @return { r = number, g = number, b = number, a = number } Interpolated color corresponding to the passed-in value.
+--
+function m.interpolateColor(val, min, avg, max, minColor, avgColor, maxColor, baseColor)
+    baseColor = baseColor or Color["text_normal"]
+
+    if min < 0 then
+        local shift = math.abs(min)
+        val, min, avg, max = val + shift, min + shift, avg + shift, max + shift
+    end
+
+    local color = avgColor
+    -- Interpolation factor (https://en.wikipedia.org/wiki/Linear_interpolation).
+    local lerpFactor = 0
+
+    if avg ~= 0 and min < avg and max > avg and val ~= avg then
+        val = math.min(max, math.max(min, val))
+        if val > avg then
+            color = maxColor
+            lerpFactor = (val - avg) / (max - avg)
+        else
+            color = minColor
+            lerpFactor = (val - avg) / (min - avg)
+        end
+    end
+
+    local refColor = Color["text_normal"]
+
+    return {
+        r = (avgColor.r - lerpFactor * (avgColor.r - color.r)) * baseColor.r / refColor.r,
+        g = (avgColor.g - lerpFactor * (avgColor.g - color.g)) * baseColor.g / refColor.g,
+        b = (avgColor.b - lerpFactor * (avgColor.b - color.b)) * baseColor.b / refColor.b,
+        a = (avgColor.a - lerpFactor * (avgColor.a - color.a)) * baseColor.a / refColor.a
+    }
+end
+
+-- function yep()
+--     -- In case both selloffer and buyoffer exist, we can show both offer amounts, but everything else can be shown only for one offer.
+--     -- In that case prefer selloffer data (for buying - change to buyoffer when player attempts to sell)
+--     local avgprice, minprice, maxprice = GetWareData(ware, "avgprice", "minprice", "maxprice")
+--     -- Get interpolated price color
+--     local avgcolor = Color["text_price_average"]
+--     local mincolor = isselloffer and Color["text_price_good"] or Color["text_price_bad"]
+--     local maxcolor = isselloffer and Color["text_price_bad"] or Color["text_price_good"]
+--     local color = avgcolor
+--     local lerpfactor = 0
+--     if avgprice ~= 0 and minprice < avgprice and maxprice > avgprice and price ~= avgprice then
+--         price = math.min(maxprice, math.max(minprice, price))
+--         if price > avgprice then
+--             color = maxcolor
+--             lerpfactor = (price - avgprice) / (maxprice - avgprice)
+--         else
+--             color = mincolor
+--             lerpfactor = (price - avgprice) / (minprice - avgprice)
+--         end
+--         --print(ware .. " min=" .. minprice .. " avg=" .. avgprice .. " max=" .. maxprice .. " (price=" .. price .. " => lerpfactor " .. lerpfactor .. ")")
+--     end
+--     -- Make price color darker if requested
+--     darkbasecolor = darkbasecolor or Color["text_normal"]
+--     local refcolor = Color["text_normal"]
+--     return {
+--         r = (avgcolor.r - lerpfactor * (avgcolor.r - color.r)) * darkbasecolor.r / refcolor.r,
+--         g = (avgcolor.g - lerpfactor * (avgcolor.g - color.g)) * darkbasecolor.g / refcolor.g,
+--         b = (avgcolor.b - lerpfactor * (avgcolor.b - color.b)) * darkbasecolor.b / refcolor.b,
+--         a = (avgcolor.a - lerpfactor * (avgcolor.a - color.a)) * darkbasecolor.a / refcolor.a
+--     }
+-- end
+
+
 -- Trade offer filters
 -- ===================
 
@@ -2131,6 +2254,20 @@ function m.filter.mapRelation(offer)
     local showEnemyOffers = m.menu.getFilterOption("trade_relation_enemy", m.menuConfig.layersettings.layer_trade[6].savegame)
 
     return showEnemyOffers and true or not m.cache.factions[offer.faction].isenemy
+end
+
+
+--- Filters offer by relative markup (benfits from player perspective).
+--
+-- @param offer {*} Offer to check.
+--
+-- @return bool true if the offer satisfies the filter, false otherwise.
+--
+function m.filter.relativeMarkup(offer)
+    local relativeMarkup =
+        offer.type == enum.offertype.buy and offer.markup or offer.markup * -1
+
+    return relativeMarkup >= m.state.filters.relativeMarkup / 100
 end
 
 
