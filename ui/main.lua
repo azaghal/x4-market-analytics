@@ -479,7 +479,25 @@ function m.createHeaderTable(frame, offsetX, offsetY)
     row[5].handlers.onClick = m.toggleHelp
 
     -- Separator line.
-    row = ftable:addRow(false)
+    -- @NOTE: Making the row selectable prevents UI crashes
+    --     With this particular row being set as non-interactive, the UI can be reliably crashed with the following instructions:
+    --
+    --         1. Open left-side property menu, select a ship.
+    --         2. Open right-side info menu, select the Behaviour tab.
+    --         3. Open right-side market analytics menu.
+    --         4. Open right-side info menu.
+    --
+    --     The message at time of this crash ends up being:
+    --
+    --         CWidgetController::UpdateFrame() - Validation error: 'Script error: 'Element at specified position for initial selected column (row: 3 / col: 5)
+    --         is non-selectable.''
+    --
+    --     At this time I have no idea why the said row/column are getting selected, nor whether the table being operated on is our own or the right-hand info
+    --     menu one.
+    --
+    --     One note of interest is that if this row gets set as non-interactive, and the help button above gets removed, it also prevents the crash, so probably
+    --     the help button is the thing that actually triggers it.
+    row = ftable:addRow(true)
     row[1]:setColSpan(5):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
 
     return ftable
