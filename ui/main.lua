@@ -1,3 +1,7 @@
+-- Copyright (c) 2026 Branko Majic
+-- Provided under MIT license. See LICENSE for details.
+
+
 local ffi = require("ffi")
 local C = ffi.C
 ffi.cdef[[
@@ -233,7 +237,7 @@ Trade offer filters are kept in sync with the map filters where possible (sector
             text = [[
 Faction filter can also be changed by left-clicking or right-clicking highlighted value.
 
-Left-click sets the filter to the highlighted value.s
+Left-click sets the filter to the highlighted value.
 
 Right-click excludes the highlighted value.]],
         },
@@ -324,7 +328,6 @@ function m.initData()
         sortParameters = { { property = "factionName", ascending = true } },
         filters = {
             factions = {},
-            -- @TODO: Currently not changeable by player, but maybe think about adding support for it in the future.
             minDistance = 0,
             maxDistance = m.config.maxDistanceFilterLimit,
             type = 0,
