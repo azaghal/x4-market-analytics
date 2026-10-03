@@ -149,15 +149,19 @@ m.config = {
     help = {
         referenceSector = {
             id = "MarketAnalytics:referenceSector",
-            text = "Trade offer distances are measured in system jumps (large hexagons) relative to reference sector.",
+            text = [[
+Trade offer distances are measured in system jumps (large hexagons) relative to reference sector.
+
+Changing the reference sector automatically refreshes the data.
+]],
         },
         resetReferenceSector = {
             id = "MarketAnalytics:resetReferenceSector",
-            text = "Resets reference sector to player's current sector.",
+            text = "Resets reference sector to player's current sector. Resetting the reference automatically refreshes data.",
         },
         resetSettings = {
             id = "MarketAnalytics:resetSettings",
-            text = "Resets all settings (reference sector, filters etc).",
+            text = "Resets all filters.",
         },
         refreshOffers = {
             id = "MarketAnalytics:refreshOffers",
@@ -1764,9 +1768,6 @@ function m.resetAllControls()
         end
         m.state.sortParametersBy[parameter.property] = parameter
     end
-
-    local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
-    m.setReferenceSector(ConvertStringToLuaID(tostring(playerSector)))
 
     m.state.currentPage = 1
 
