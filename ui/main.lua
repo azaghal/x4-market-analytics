@@ -10,11 +10,17 @@ ffi.cdef[[
 
 --- Convenience wrapper for debug output using string.format().
 --
+-- If format specifiers are excluded from the format parameter, remaining arguments are simply appended at the very end using the '%s' format specifier.
+--
 -- @param string Formating string for string.format.
 -- @param any* Formating string parameters.
 --
-local function _debug(...)
-    DebugError(string.format(...))
+local function _debug(format, ...)
+    if not string.find(format, "%%") and select('#', ...) > 0 then
+        format = format .. string.rep(" %s,", select('#', ...))
+        format = string.gsub(format, ",$", "")
+    end
+    DebugError(string.format(format, ...))
 end
 
 
