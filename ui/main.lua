@@ -179,6 +179,9 @@ m.config = {
     -- rendered offer adds 3 buttons to the UI, so hopefully the leftover should be sufficient to handle the rest of the shown UI.
     maxOffersPageSize = 40,
 
+    -- Maximum number of trade offers that can be pinned.
+    pinnedOfferLimit = 5,
+
     help = {
         referenceSector = {
             id = "MarketAnalytics:referenceSector",
@@ -298,7 +301,19 @@ Double-click to focus it on the map.
 Right-click to bring up the interaction menu.
 
 Control + right-click to bring up the trade menu.]],
-        }
+        },
+        offerPinning = {
+            id = "MarketAnalytics:offerPinning",
+            text = [[
+Up to five offers can be pinned at the top of the page. Pinned offers are always visible and are not affected by filters nor sorting.
+
+Control + left-click toggles the pin for highlighted value's trade offer.]],
+        },
+        pinnedOffer = {
+            id = "MarketAnalytics:pinnedOffer",
+            text = [[
+This trade offer has been pinned. Pinned offers are always visible and are not afected by filters nor sorting. Pinned offers are marked with a lock icon.]],
+        },
     },
 }
 
@@ -954,8 +969,10 @@ end
 --- Renders a single offer in the ware listing table.
 --
 -- @param ftable {*} Table descriptor.
--- @param offer {*} Offer to check.
+-- @param offer {*} Offer to render.
 -- @param pinned bool Specify if the offer is pinned.
+--
+-- @return {*} Row descriptor.
 --
 function m.renderOffer(ftable, offer, pinned)
     local row = ftable:addRow(offer)
@@ -1001,7 +1018,14 @@ function m.renderOffer(ftable, offer, pinned)
     else
         local truncatedText, mouseOverText = m.truncateText(offer.wareText, row[5]:getWidth() - m.config.textAlignmentCorrection.x)
         row[5]:createButton({ height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText }):setText(truncatedText)
-        row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
+        row[5].handlers.onClick = function()
+            if C.IsControlPressed() then
+                m.toggleOfferPin(offer)
+                m.menu.refreshInfoFrame2()
+            else
+                m.setWareFilter({{id = offer.ware, state = true}})
+            end
+        end
         row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{ id = offer.ware, state = false }}, true) end
     end
 
@@ -1009,6 +1033,8 @@ function m.renderOffer(ftable, offer, pinned)
     row[7]:createText(offer.priceText, { halign = "right" })
     row[8]:createText(offer.markupText, { halign = "right" })
     row[9]:createText(offer.amountText, { halign = "right" })
+
+    return row
 end
 
 
@@ -1026,8 +1052,12 @@ function m.renderOffers(ftable)
 
     local pinnedOfferShown = false
     for _, offer in pairs(m.state.pinnedOffers) do
-        m.renderOffer(ftable, offer, true)
-        pinnedOfferShown = true
+        local row = m.renderOffer(ftable, offer, true)
+        if not pinnedOfferShown then
+            m.setHelp(row[1], "pinnedOffer")
+            m.setHelp(row[5], "offerPinning")
+            pinnedOfferShown = true
+        end
     end
 
     if pinnedOfferShown then
@@ -1041,23 +1071,26 @@ function m.renderOffers(ftable)
         row[1]:setColSpan(#m.config.wareColumns):createText(" ", { height = m.config.separatorHeight })
     end
 
-    local filteredOfferShown = false
+    local firstFilteredOfferShown = false
+    local secondFilteredOfferShown = false
     for index = from, to do
         local offer = m.state.filteredOffers[index]
+        local row = m.renderOffer(ftable, offer)
 
-        m.renderOffer(ftable, offer)
-
-        -- Show help overlay on first displayed (non-pinned) trade offer.
-        if not filteredOfferShown then
-            m.setHelp(ftable.rows[#ftable.rows][1], "offerFactionFilterButton")
-            m.setHelp(ftable.rows[#ftable.rows][2], "offerStationInteraction")
-            m.setHelp(ftable.rows[#ftable.rows][3], "offerSectorFilterButton")
-            m.setHelp(ftable.rows[#ftable.rows][5], "offerWareFilterButton")
-            filteredOfferShown = true
+        -- Show help overlay on first and second (non-pinned) trade offer.
+        if not firstFilteredOfferShown then
+            m.setHelp(row[1], "offerFactionFilterButton")
+            m.setHelp(row[2], "offerStationInteraction")
+            m.setHelp(row[3], "offerSectorFilterButton")
+            m.setHelp(row[5], "offerWareFilterButton")
+            firstFilteredOfferShown = true
+        elseif firstFilteredOfferShown and not pinnedOfferShown and not secondFilteredOfferShown then
+            m.setHelp(row[5], "offerPinning")
+            secondFilteredOfferShown = true
         end
     end
 
-    if filteredOfferShown then
+    if firstFilteredOfferShown then
         -- Separator line.
         local row = ftable:addRow(false)
         row[1]:setColSpan(#m.config.wareColumns):createText(" ",
@@ -2021,31 +2054,10 @@ function m.onTableRowSelect(tableID, _modified, _rowID, isDoubleClick, _input)
         return
     end
 
-    local selectedOffer = Helper.getCurrentRowData(m.menu, tableID)
+    local offer = Helper.getCurrentRowData(m.menu, tableID)
 
-    if selectedOffer and isDoubleClick and C.IsShiftPressed() then
-        local foundPinned = false
-        for index, pinnedOffer in ipairs(m.state.pinnedOffers) do
-            if selectedOffer.id == pinnedOffer.id then
-                table.remove(m.state.pinnedOffers, index)
-                table.insert(m.state.offers, selectedOffer)
-                foundPinned = true
-                break
-            end
-        end
-        if not foundPinned then
-            for index, offer in ipairs(m.state.offers) do
-                if selectedOffer.id == offer.id then
-                    table.remove(m.state.offers, index)
-                    table.insert(m.state.pinnedOffers, selectedOffer)
-                    break
-                end
-            end
-        end
-        m.updateOffers(false, true, true)
-        m.menu.refreshInfoFrame2()
-    elseif selectedOffer and isDoubleClick then
-        C.SetFocusMapComponent(m.menu.holomap, ConvertStringTo64Bit(tostring(selectedOffer.station)), true)
+    if offer and isDoubleClick then
+        C.SetFocusMapComponent(m.menu.holomap, ConvertStringTo64Bit(tostring(offer.station)), true)
     end
 end
 
@@ -2203,6 +2215,33 @@ function m.interpolateColor(val, min, avg, max, minColor, avgColor, maxColor, ba
         b = (avgColor.b - lerpFactor * (avgColor.b - color.b)) * baseColor.b / refColor.b,
         a = (avgColor.a - lerpFactor * (avgColor.a - color.a)) * baseColor.a / refColor.a
     }
+end
+
+
+--- Toggles pinning for passed-in offer.
+--
+-- @param offer {*} Offer to pin/unpin.
+--
+function m.toggleOfferPin(offer)
+    local foundPinned = false
+    for index, pinnedOffer in ipairs(m.state.pinnedOffers) do
+        if IsSameTrade(offer.id, pinnedOffer.id) then
+            table.remove(m.state.pinnedOffers, index)
+            table.insert(m.state.offers, offer)
+            foundPinned = true
+            break
+        end
+    end
+    if not foundPinned and #m.state.pinnedOffers < m.config.pinnedOfferLimit then
+        for index, unpinnedOffer in ipairs(m.state.offers) do
+            if IsSameTrade(offer.id, unpinnedOffer.id) then
+                table.remove(m.state.offers, index)
+                table.insert(m.state.pinnedOffers, offer)
+                break
+            end
+        end
+    end
+    m.updateOffers(false, true, true)
 end
 
 
