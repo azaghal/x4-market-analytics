@@ -51,6 +51,7 @@ m.filter = {}
 --- Static configuration for the menu.
 m.config = {
     separatorHeight = 1,
+    separatorBorder = Helper.borderSize,
 
     -- Columns shown for the wares listings.
     wareColumns = {
@@ -413,7 +414,7 @@ function m.createMenu()
     local waresTable = m.createWaresTable(m.menu.infoFrame2, 0, verticalOffset)
     verticalOffset = verticalOffset + waresTable:getVisibleHeight() + Helper.borderSize * 2
 
-    local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset - m.config.separatorHeight
+    local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset - m.config.separatorHeight - m.config.separatorBorder
     local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(m.menuConfig.mapRowHeight) + Helper.borderSize))
     offersPageSize = math.min(offersPageSize, m.config.maxOffersPageSize)
 
@@ -535,7 +536,7 @@ function m.createHeaderTable(frame, offsetX, offsetY)
     --     the help button is the thing that actually triggers it.
     row = ftable:addRow(true)
     row[1]:setColSpan(5):createText(" ",
-        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
+        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
 
     return ftable
 end
@@ -915,7 +916,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
     -- Separator line.
     row = ftable:addRow(false)
     row[1]:setColSpan(#m.config.wareColumns):createText(" ",
-        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
+        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
 
     return ftable
 end
@@ -1001,7 +1002,7 @@ function m.renderOffers(ftable)
     -- Separator line.
     local row = ftable:addRow(false)
     row[1]:setColSpan(#m.config.wareColumns):createText(" ",
-        {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
+        {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
 end
 
 
@@ -1284,7 +1285,7 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
     -- Separator.
     row = ftable:addRow(false, { fixed = true })
     row[1]:setColSpan(2):createText(" ",
-        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
+        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
 
     -- Group dropdown
     if groups then
@@ -1330,7 +1331,7 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
         -- Separator.
         row = ftable:addRow(false, { fixed = true })
         row[1]:setColSpan(2):createText(" ",
-            { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
+            { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
     end
 
     -- Individual option toggles.
