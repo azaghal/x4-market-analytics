@@ -50,6 +50,8 @@ m.filter = {}
 
 --- Static configuration for the menu.
 m.config = {
+    separatorHeight = 1,
+
     -- Columns shown for the wares listings.
     wareColumns = {
         {
@@ -411,7 +413,7 @@ function m.createMenu()
     local waresTable = m.createWaresTable(m.menu.infoFrame2, 0, verticalOffset)
     verticalOffset = verticalOffset + waresTable:getVisibleHeight() + Helper.borderSize * 2
 
-    local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset
+    local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset - m.config.separatorHeight
     local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(m.menuConfig.mapRowHeight) + Helper.borderSize))
     offersPageSize = math.min(offersPageSize, m.config.maxOffersPageSize)
 
@@ -441,6 +443,22 @@ function m.createFrame()
     local topPadding = Helper.frameBorder + Helper.borderSize * 2 + (Helper.scaleY(Helper.standardButtonHeight) + Helper.borderSize) * 4
     -- Leave the standard gap at the bottom of the screen.
     local bottomPadding = Helper.frameBorder + Helper.borderSize
+    -- Do not overlap the selected objects table at bottom (useful to see what is currently selected). Broken down by rows, with borders as well
+    bottomPadding = bottomPadding +
+        Helper.scaleY(Helper.headerRow1Height) + 0 +
+        -- @NOTE: Weird spacing in selected object title row for 8.00.HF4
+        --     Vanilla code does something weird when setting the minimum row heights in menu_map.lua:19181 (effective 16) and menu_map.lua:19217 (effective
+        --     20). On lower UI scale the row ends up with same height as the one above, but at higher UI scales (1920x1080@1.3+), the row starts to become
+        --     taller. This little calculation tries to compensate for it.
+        Helper.scaleY(math.max(Helper.headerRow1Height, m.menu.selectedShipsTableData.textHeight)) + 0 +
+        Helper.scaleY(Helper.standardTextHeight) + 0 +
+        2 + Helper.borderSize +
+        Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize +
+        Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize +
+        Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize +
+        Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize +
+        Helper.scaleY(Helper.standardTextHeight) + Helper.borderSize +
+        Helper.scaleY(Helper.standardTextHeight)
 
     local width = Helper.viewWidth - leftPadding - rightPadding
     local height = Helper.viewHeight - topPadding - bottomPadding
@@ -516,7 +534,8 @@ function m.createHeaderTable(frame, offsetX, offsetY)
     --     One note of interest is that if this row gets set as non-interactive, and the help button above gets removed, it also prevents the crash, so probably
     --     the help button is the thing that actually triggers it.
     row = ftable:addRow(true)
-    row[1]:setColSpan(5):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+    row[1]:setColSpan(5):createText(" ",
+        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
 
     return ftable
 end
@@ -895,7 +914,8 @@ function m.createWaresTable(frame, offsetX, offsetY)
 
     -- Separator line.
     row = ftable:addRow(false)
-    row[1]:setColSpan(#m.config.wareColumns):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+    row[1]:setColSpan(#m.config.wareColumns):createText(" ",
+        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
 
     return ftable
 end
@@ -977,6 +997,11 @@ function m.renderOffers(ftable)
             m.setHelp(row[5], "offerWareFilterButton")
         end
     end
+
+    -- Separator line.
+    local row = ftable:addRow(false)
+    row[1]:setColSpan(#m.config.wareColumns):createText(" ",
+        {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
 end
 
 
@@ -1258,7 +1283,8 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
 
     -- Separator.
     row = ftable:addRow(false, { fixed = true })
-    row[1]:setColSpan(2):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+    row[1]:setColSpan(2):createText(" ",
+        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
 
     -- Group dropdown
     if groups then
@@ -1303,7 +1329,8 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
 
         -- Separator.
         row = ftable:addRow(false, { fixed = true })
-        row[1]:setColSpan(2):createText(" ", {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = 1})
+        row[1]:setColSpan(2):createText(" ",
+            { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight, borderBelow = false })
     end
 
     -- Individual option toggles.
