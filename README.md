@@ -32,6 +32,8 @@ Quick recap:
 -   Filter controls are shown under the column names. Left-click to set the filter, right-click to clear the filter. Dropdowns do not support clearing via right-click.
 -   Left-click on trade offer's faction icon, sector name, or ware name to set the filter value.
 -   Right-click on trade offer's faction icon, sector name, or ware name to *exclude* the value from the filter.
+-   Control + left-click on trade offer's sector to set reference sector.
+-   Control + left-click on trade offer's ware name to (un)pin it at the top.
 -   Distance is measured in *system* jumps. For example, both *Hatikvah's Choice I* and *Hatikvah's Choice III* are considered to be just one jump away from Argon Prime.
 -   Faction filter supports using trade rules from global orders as filter (*Group By* feature).
 
