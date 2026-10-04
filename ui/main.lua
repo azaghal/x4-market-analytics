@@ -63,6 +63,21 @@ m.config = {
         fontsize = Helper.scaleFont(Helper.standardFont, Helper.standardFontSize),
         scaling = false,
     },
+    -- Variations for setText/setText2
+    textLeftAlignmentCorrection = {
+        x = 2,
+        y = math.floor(1 * Helper.uiScale),
+        fontsize = Helper.scaleFont(Helper.standardFont, Helper.standardFontSize),
+        scaling = false,
+        halign = "left",
+    },
+    textRightAlignmentCorrection = {
+        x = 2,
+        y = math.floor(1 * Helper.uiScale),
+        fontsize = Helper.scaleFont(Helper.standardFont, Helper.standardFontSize),
+        scaling = false,
+        halign = "right",
+    },
 
     -- Columns shown for the wares listings.
     wareColumns = {
@@ -349,6 +364,7 @@ function m.initData()
         },
         referenceSector = ConvertStringToLuaID(tostring(playerSector)),
         showHelp = false,
+        pinnedOffers = {},
     }
 
     -- Make parameters accessible by sort property.
@@ -426,14 +442,16 @@ function m.createMenu()
     verticalOffset = verticalOffset + waresTable:getVisibleHeight() + Helper.borderSize * 2
 
     local offersAvailableHeight = m.menu.infoFrame2.properties.height - verticalOffset - m.config.separatorHeight - m.config.separatorBorder
-    local offersPageSize = math.floor(offersAvailableHeight / (Helper.scaleY(m.menuConfig.mapRowHeight) + Helper.borderSize))
-    offersPageSize = math.min(offersPageSize, m.config.maxOffersPageSize)
+    local offersAvailablePageSize = math.floor(offersAvailableHeight / (Helper.scaleY(m.menuConfig.mapRowHeight) + Helper.borderSize))
+    offersAvailablePageSize = math.min(offersAvailablePageSize, m.config.maxOffersPageSize)
 
     m.widgets.waresTable = waresTable
     -- Piggyback off of vanilla menu row tracking.
     m.widgets.waresTable:setSelectedRow(m.menu.selectedRows.infotable3right)
 
-    m.updateOffers(offersPageSize, false, false, false)
+    m.state.availablePageSize = offersAvailablePageSize
+
+    m.updateOffers(false, false, false)
     m.renderOffers(waresTable)
     m.updateControls()
 end
@@ -608,7 +626,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
     row[13]:createButton():setText("Refresh", { halign = "center" })
     m.setHelp(row[13], "refreshOffers")
     row[13].handlers.onClick = function()
-        m.updateOffers(m.state.pageSize, true, false, false)
+        m.updateOffers(true, false, false)
         m.menu.refreshInfoFrame2()
     end
 
@@ -809,7 +827,7 @@ function m.createFilterControls(ftable)
         local volumeInfo = m.getTradeVolumeInfo() or m.getTradeVolumeInfo(0)
         m.setTradeVolumeFilter(volumeInfo.nextVolume)
 
-        m.updateOffers(m.state.pageSize, false, true, true)
+        m.updateOffers(false, true, true)
 	m.menu.refreshMainFrame = true
     end
     row[9].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setTradeVolumeFilter() end
@@ -878,7 +896,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 m.state.sortParametersBy[parameter.property] = parameter
             end
 
-            m.updateOffers(m.state.pageSize, false, false, true)
+            m.updateOffers(false, false, true)
             m.menu.refreshInfoFrame2()
         end
 
@@ -917,7 +935,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 m.state.sortParametersBy[parameter.property] = parameter
             end
 
-            m.updateOffers(m.state.pageSize, false, false, true)
+            m.updateOffers(false, false, true)
             m.menu.refreshInfoFrame2()
         end
     end
@@ -933,6 +951,67 @@ function m.createWaresTable(frame, offsetX, offsetY)
 end
 
 
+--- Renders a single offer in the ware listing table.
+--
+-- @param ftable {*} Table descriptor.
+-- @param offer {*} Offer to check.
+-- @param pinned bool Specify if the offer is pinned.
+--
+function m.renderOffer(ftable, offer, pinned)
+    local row = ftable:addRow(offer)
+
+    if m.menu.contextMenuMode or Helper.interactMenuActive then
+        if pinned then
+            row[1]:createIcon("solid", { height = m.menuConfig.mapRowHeight, color = Color["row_background"] })
+            row[1]:setText(offer.factionText, m.config.textLeftAlignmentCorrection)
+            row[1]:setText2("\27[menu_locked]", m.config.textRightAlignmentCorrection)
+        else
+            row[1]:createText(offer.factionText, m.config.textAlignmentCorrection)
+        end
+    else
+        row[1]:createButton({ height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
+        if pinned then
+            row[1]:setText2("\27[menu_locked]", { halign = "right" })
+        end
+        row[1].handlers.onClick = function() m.setFactionFilter({{ id = offer.faction, state = true }}) end
+        row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{ id = offer.faction, state = false }}, true) end
+    end
+
+    row[2]:createText(offer.stationText)
+
+    if m.menu.contextMenuMode or Helper.interactMenuActive then
+        row[3]:createText(offer.sectorText, m.config.textAlignmentCorrection)
+    else
+        local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth() - m.config.textAlignmentCorrection.x)
+        row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
+        row[3].handlers.onClick = function()
+            if C.IsControlPressed() then
+                m.setReferenceSector(offer.sector)
+            else
+                m.setSectorFilter({{ id = offer.sector, state = true }})
+            end
+        end
+        row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}, true) end
+    end
+
+    row[4]:createText(offer.distanceText, { halign = "right" })
+
+    if m.menu.contextMenuMode or Helper.interactMenuActive then
+        row[5]:createText(offer.wareText, m.config.textAlignmentCorrection)
+    else
+        local truncatedText, mouseOverText = m.truncateText(offer.wareText, row[5]:getWidth() - m.config.textAlignmentCorrection.x)
+        row[5]:createButton({ height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText }):setText(truncatedText)
+        row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
+        row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{ id = offer.ware, state = false }}, true) end
+    end
+
+    row[6]:createText(offer.typeText)
+    row[7]:createText(offer.priceText, { halign = "right" })
+    row[8]:createText(offer.markupText, { halign = "right" })
+    row[9]:createText(offer.amountText, { halign = "right" })
+end
+
+
 --- Render offers in the ware listing table.
 --
 -- @param ftable {*} Table descriptor.
@@ -945,64 +1024,41 @@ function m.renderOffers(ftable)
     local from = 1 + m.state.pageSize * (m.state.currentPage - 1)
     local to = math.min(#m.state.filteredOffers, m.state.pageSize * m.state.currentPage)
 
+    local pinnedOfferShown = false
+    for _, offer in pairs(m.state.pinnedOffers) do
+        m.renderOffer(ftable, offer, true)
+        pinnedOfferShown = true
+    end
+
+    if pinnedOfferShown then
+        -- Separator line.
+        local row = ftable:addRow(false)
+        row[1]:setColSpan(#m.config.wareColumns):createText(" ",
+            { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    end
+
+    local filteredOfferShown = false
     for index = from, to do
         local offer = m.state.filteredOffers[index]
-        local row = ftable:addRow(offer)
 
-        if m.menu.contextMenuMode or Helper.interactMenuActive then
-            row[1]:createText(offer.factionText, m.config.textAlignmentCorrection)
-        else
-            row[1]:createButton({ height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
-            row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
-            row[1].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setFactionFilter({{id = offer.faction, state = false}}, true) end
-        end
+        m.renderOffer(ftable, offer)
 
-        row[2]:createText(offer.stationText)
-
-        if m.menu.contextMenuMode or Helper.interactMenuActive then
-            row[3]:createText(offer.sectorText, m.config.textAlignmentCorrection)
-        else
-            local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth() - m.config.textAlignmentCorrection.x)
-            row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
-            row[3].handlers.onClick = function()
-                if C.IsControlPressed() then
-                    m.setReferenceSector(offer.sector)
-                else
-                    m.setSectorFilter({{id = offer.sector, state = true}})
-                end
-            end
-            row[3].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setSectorFilter({{id = offer.sector, state = false}}, true) end
-        end
-
-        row[4]:createText(offer.distanceText, { halign = "right" })
-
-        if m.menu.contextMenuMode or Helper.interactMenuActive then
-            row[5]:createText(offer.wareText, m.config.textAlignmentCorrection)
-        else
-            local truncatedText, mouseOverText = m.truncateText(offer.wareText, row[5]:getWidth() - m.config.textAlignmentCorrection.x)
-            row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
-            row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
-            row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}, true) end
-        end
-
-        row[6]:createText(offer.typeText)
-        row[7]:createText(offer.priceText, { halign = "right" })
-        row[8]:createText(offer.markupText, { halign = "right" })
-        row[9]:createText(offer.amountText, { halign = "right" })
-
-        -- Show help overlay via first displayed row only.
-        if index == from then
-            m.setHelp(row[1], "offerFactionFilterButton")
-            m.setHelp(row[2], "offerStationInteraction")
-            m.setHelp(row[3], "offerSectorFilterButton")
-            m.setHelp(row[5], "offerWareFilterButton")
+        -- Show help overlay on first displayed (non-pinned) trade offer.
+        if not filteredOfferShown then
+            m.setHelp(ftable.rows[#ftable.rows][1], "offerFactionFilterButton")
+            m.setHelp(ftable.rows[#ftable.rows][2], "offerStationInteraction")
+            m.setHelp(ftable.rows[#ftable.rows][3], "offerSectorFilterButton")
+            m.setHelp(ftable.rows[#ftable.rows][5], "offerWareFilterButton")
+            filteredOfferShown = true
         end
     end
 
-    -- Separator line.
-    local row = ftable:addRow(false)
-    row[1]:setColSpan(#m.config.wareColumns):createText(" ",
-        {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    if filteredOfferShown then
+        -- Separator line.
+        local row = ftable:addRow(false)
+        row[1]:setColSpan(#m.config.wareColumns):createText(" ",
+            {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    end
 end
 
 
@@ -1081,12 +1137,11 @@ end
 --
 -- Offer data is cached in order to avoid expensive computation and lag.
 --
--- @param pageSize number Number of offers to show per page.
 -- @param forceRefresh bool Force refresh of cached data.
 -- @param forceFilter bool Force filtering of cached data.
 -- @param forceSort bool Force sorting of cached data.
 --
-function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
+function m.updateOffers(forceRefresh, forceFilter, forceSort)
     if not m.state.offers or forceRefresh or forceFilter then
         m.updateCache()
     end
@@ -1094,10 +1149,39 @@ function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
     if not m.state.offers or forceRefresh then
         m.state.offers = m.getTradeOffers()
         m.state.offersAge = C.GetCurrentGameTime()
+
+        -- @TODO: Avoid additional traversals by implementing improved logic inside of m.getTradeOffers()
+        --     This is highly inefficient since we traverse the whole list for each pinned offer - which is on top of traversal that effectively happens as part
+        --     of the m.getTradeOffers() implementation. It might be possible to avoid this by introducing a set ({ component<trade> = bool }) to keep track of
+        --     pinned offers. This would be on top of the existing list of pinned trader offers (which is necessary to preserve the order in which the player
+        --     pinned them).
+        --
+        --     However, since offer IDs are components (userdata), those would need to be converted into a number, and then the question is whether those IDs
+        --     are unique enough or they might get reused over a shorter period of time. A simple id-based lookup won't work, since new set of trade offers are
+        --     not the same binary objects any longer as the pinned ones.
+        --
+        --     For now, this is just a brute-force solution to move along with adding the pinning feature..
+        for i = #m.state.pinnedOffers, 1, -1 do
+            local foundPinnedOffer = false
+            for j = #m.state.offers, 1, -1 do
+                if IsSameTrade(m.state.pinnedOffers[i], m.state.offers[j].id) then
+                    m.state.pinnedOffers[i] = m.state.offers[j]
+                    table.remove(m.state.offers, j)
+                    foundPinnedOffer = true
+                    break
+                end
+            end
+            -- Pinned offer is no longer valid.
+            if not foundPinnedOffer then
+                table.remove(m.state.pinnedOffers, i)
+            end
+        end
+
         forceFilter = true
         forceSort = true
     end
 
+    -- Pinned offers are excluded from filtering / sorting to make the interface predictable for player.
     if forceFilter then
         m.state.filteredOffers = {}
         for _, offer in ipairs(m.state.offers) do
@@ -1120,11 +1204,11 @@ function m.updateOffers(pageSize, forceRefresh, forceFilter, forceSort)
         table.sort(m.state.filteredOffers, function(a, b) return m.compareOffers(a, b, sortParameters) end)
     end
 
-    m.state.pageSize = pageSize
+    m.state.pageSize = m.state.availablePageSize - #m.state.pinnedOffers
     m.state.pageCount = math.ceil(#m.state.filteredOffers / m.state.pageSize)
     m.state.currentPage = math.min(m.state.currentPage, m.state.pageCount)
 
-    -- This can happen with sequence: pageCount > 0 -> pageCount == 0 -> pageCount > 0.k
+    -- This can happen with sequence: pageCount > 0 -> pageCount == 0 -> pageCount > 0.
     if m.state.pageCount > 0 and m.state.currentPage == 0 then
         m.state.currentPage = 1
     end
@@ -1444,7 +1528,7 @@ function m.setFactionFilter(settings, append)
         m.state.filters.factions[setting.id] = setting.state or nil
     end
 
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshInfoFrame2()
 end
 
@@ -1509,7 +1593,7 @@ function m.setWareFilter(settings, append)
     m.menu.setFilterOption("layer_trade", mapFilterSetting, mapFilterSetting.id, enabledWares)
     m.menu.closeContextMenu = originalCloseContextMenu
 
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshMainFrame = true
 end
 
@@ -1615,7 +1699,7 @@ function m.setSectorFilter(settings, append)
     end
 
     m.menu.setSectorFilter()
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshMainFrame = true
 end
 
@@ -1718,7 +1802,7 @@ end
 --
 function m.setReferenceSector(sector)
     m.state.referenceSector = sector
-    m.updateOffers(m.state.pageSize, true, false, false)
+    m.updateOffers(true, false, false)
     m.menu.refreshInfoFrame2()
 end
 
@@ -1734,7 +1818,7 @@ function m.setMaxDistanceFilter(distance)
         m.state.filters.maxDistance = distance
     end
 
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshInfoFrame2()
 end
 
@@ -1746,7 +1830,7 @@ end
 function m.setTypeFilter(type_)
     m.state.filters.type = type_ or 0
 
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshInfoFrame2()
 end
 
@@ -1758,7 +1842,7 @@ end
 function m.setMarkupFilter(relativeMarkup)
     m.state.filters.relativeMarkup = relativeMarkup or -50
 
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshInfoFrame2()
 end
 
@@ -1771,7 +1855,7 @@ function m.setTradeVolumeFilter(volume)
     local setting = m.menuConfig.layersettings.layer_trade[4]
     m.menu.setFilterOption("layer_trade", setting, "trade_volume", volume or 0)
 
-    m.updateOffers(m.state.pageSize, false, true, true)
+    m.updateOffers(false, true, true)
     m.menu.refreshMainFrame = true
 end
 
@@ -1802,7 +1886,7 @@ function m.resetAllControls()
 
     m.state.currentPage = 1
 
-    m.updateOffers(m.state.pageSize, false, false, false)
+    m.updateOffers(false, false, false)
     m.menu.refreshInfoFrame2()
 end
 
@@ -1929,11 +2013,35 @@ end
 -- @param input string|nil Input device that triggered the row selection (for example "mouse").
 --
 function m.onTableRowSelect(tableID, _modified, _rowID, isDoubleClick, _input)
-    if m.menu.searchTableMode == "marketanalytics" and tableID == m.widgets.waresTable.id then
-        local offer = Helper.getCurrentRowData(m.menu, tableID)
-        if offer and isDoubleClick then
-            C.SetFocusMapComponent(m.menu.holomap, ConvertStringTo64Bit(tostring(offer.station)), true)
+    if m.menu.searchTableMode ~= "marketanalytics" or tableID ~= m.widgets.waresTable.id then
+        return
+    end
+
+    local selectedOffer = Helper.getCurrentRowData(m.menu, tableID)
+
+    if selectedOffer and isDoubleClick and C.IsShiftPressed() then
+        local foundPinned = false
+        for index, pinnedOffer in ipairs(m.state.pinnedOffers) do
+            if selectedOffer.id == pinnedOffer.id then
+                table.remove(m.state.pinnedOffers, index)
+                table.insert(m.state.offers, selectedOffer)
+                foundPinned = true
+                break
+            end
         end
+        if not foundPinned then
+            for index, offer in ipairs(m.state.offers) do
+                if selectedOffer.id == offer.id then
+                    table.remove(m.state.offers, index)
+                    table.insert(m.state.pinnedOffers, selectedOffer)
+                    break
+                end
+            end
+        end
+        m.updateOffers(false, true, true)
+        m.menu.refreshInfoFrame2()
+    elseif selectedOffer and isDoubleClick then
+        C.SetFocusMapComponent(m.menu.holomap, ConvertStringTo64Bit(tostring(selectedOffer.station)), true)
     end
 end
 
@@ -2318,7 +2426,7 @@ end
 function m.override.setSectorFilter(...)
     m.original.setSectorFilter(...)
     if m.state.filteredOffers then
-        m.updateOffers(m.state.pageSize, false, true, true)
+        m.updateOffers(false, true, true)
     end
     if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()
@@ -2331,7 +2439,7 @@ end
 function m.override.filterTradeWares(...)
     m.original.filterTradeWares(...)
     if m.state.filteredOffers then
-        m.updateOffers(m.state.pageSize, false, true, true)
+        m.updateOffers(false, true, true)
     end
     if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()
@@ -2344,7 +2452,7 @@ end
 function m.override.filterTradeRelation(...)
     m.original.filterTradeRelation(...)
     if m.state.filteredOffers then
-        m.updateOffers(m.state.pageSize, false, true, true)
+        m.updateOffers(false, true, true)
     end
     if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()
@@ -2357,7 +2465,7 @@ end
 function m.override.filterTradeVolume(...)
     m.original.filterTradeVolume(...)
     if m.state.filteredOffers then
-        m.updateOffers(m.state.pageSize, false, true, true)
+        m.updateOffers(false, true, true)
     end
     if m.menu.searchTableMode == "marketanalytics" then
         m.menu.refreshInfoFrame2()

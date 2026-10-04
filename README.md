@@ -82,6 +82,7 @@ Roadmap
 -   Filtering by minimum distance (maybe).
 -   Amount as multiple of selected ship capacity (maybe).
 -   Tooltips with faction list for faction group filters.
+-   Average ware price as a tooltip.
 
 
 Credits

@@ -31,6 +31,7 @@ globals = {
     "GetSectors",
     "GetTradeList",
     "GetWareData",
+    "IsSameTrade",
     "ReadText",
     "RegisterEvent",
     "registerForEvent",
