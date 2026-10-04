@@ -75,14 +75,32 @@ Majority (if not all) of the listed limitations related to the vanilla widget sy
 Roadmap
 -------
 
--   Explicit filter control for showing/hiding enemy trade offers.
--   Trade offer station pinning (that also ignores filters).
+Features:
+
 -   Filtering by ware groups.
 -   Customizable filter (reset) defaults.
+-   Filter controls for toggling showing/hiding enemy trade offers, kept in sync with map filters.
+-   Trade offer station pinning (maybe).
 -   Filtering by minimum distance (maybe).
+-   Filtering by station (maybe).
+-   Filtering by price (maybe).
 -   Amount as multiple of selected ship capacity (maybe).
--   Tooltips with faction list for faction group filters.
--   Average ware price as a tooltip.
+-   Price range tooltips when hovering over prices (maybe).
+-   Display trade offer total volume (maybe).
+-   Display trade offer amounts as multiples of selected ship's capacity (maybe). Ship icon can be used as indicator. Probably togglable.
+-   Display trade offer discounts (maybe).
+
+Improvements:
+
+-   Show membership details when hovering over faction group filter options.
+-   Treat faction by-group filtering as category of its own and apply group changes dynamically.
+
+Chores:
+
+-   Implement `m.generateWareFilterOptions` and `m.generateFactionFilterOptions` for code consitency.
+-   Sort options inside of `m.generate*FilterOptions` functioins.
+-   Alternate row background colours for better visibility.
+-   Review code for calculations that can be moved into static (config) portion of code initialisation.
 
 
 Credits
