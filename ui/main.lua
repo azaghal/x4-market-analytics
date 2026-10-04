@@ -1207,7 +1207,7 @@ function m.updateOffers(forceRefresh, forceFilter, forceSort)
         for i = #m.state.pinnedOffers, 1, -1 do
             local foundPinnedOffer = false
             for j = #m.state.offers, 1, -1 do
-                if IsSameTrade(m.state.pinnedOffers[i], m.state.offers[j].id) then
+                if IsSameTrade(m.state.pinnedOffers[i].id, m.state.offers[j].id) then
                     m.state.pinnedOffers[i] = m.state.offers[j]
                     table.remove(m.state.offers, j)
                     foundPinnedOffer = true
