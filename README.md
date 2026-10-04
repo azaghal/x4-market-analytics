@@ -76,11 +76,9 @@ Roadmap
 -------
 
 -   Explicit filter control for showing/hiding enemy trade offers.
--   Trade offer pinning (that also ignores filters).
 -   Trade offer station pinning (that also ignores filters).
 -   Filtering by ware groups.
 -   Customizable filter (reset) defaults.
--   Auto-refresh offers when queing up a trade.
 -   Filtering by minimum distance (maybe).
 -   Amount as multiple of selected ship capacity (maybe).
 -   Tooltips with faction list for faction group filters.

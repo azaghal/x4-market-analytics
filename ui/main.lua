@@ -344,6 +344,7 @@ function m.init()
     m.original.filterTradeVolume = m.menu.filterTradeVolume
     m.original.filterTradeRelation = m.menu.filterTradeRelation
     m.original.closeContextMenu = m.menu.closeContextMenu
+    m.original.buttonConfirmTrade = m.menu.buttonConfirmTrade
     m.original.interact.onCloseElement = m.interactMenu.onCloseElement
 
     -- Override original functions with custom implementation.
@@ -352,6 +353,7 @@ function m.init()
     m.menu.filterTradeVolume = m.override.filterTradeVolume
     m.menu.filterTradeRelation = m.override.filterTradeRelation
     m.menu.closeContextMenu = m.override.closeContextMenu
+    m.menu.buttonConfirmTrade = m.override.buttonConfirmTrade
     m.interactMenu.onCloseElement = m.override.interact.onCloseElement
 end
 
@@ -2498,6 +2500,20 @@ function m.override.closeContextMenu(...)
     end
 
     return result
+end
+
+
+--- Refreshes trade offers while queing up trade orders.
+--
+function m.override.buttonConfirmTrade(...)
+    m.original.buttonConfirmTrade(...)
+
+    if m.menu.searchTableMode ~= "marketanalytics" then
+        return
+    end
+
+    m.updateOffers(true, false, false)
+    m.menu.refreshInfoFrame2()
 end
 
 
