@@ -2205,38 +2205,6 @@ function m.interpolateColor(val, min, avg, max, minColor, avgColor, maxColor, ba
     }
 end
 
--- function yep()
---     -- In case both selloffer and buyoffer exist, we can show both offer amounts, but everything else can be shown only for one offer.
---     -- In that case prefer selloffer data (for buying - change to buyoffer when player attempts to sell)
---     local avgprice, minprice, maxprice = GetWareData(ware, "avgprice", "minprice", "maxprice")
---     -- Get interpolated price color
---     local avgcolor = Color["text_price_average"]
---     local mincolor = isselloffer and Color["text_price_good"] or Color["text_price_bad"]
---     local maxcolor = isselloffer and Color["text_price_bad"] or Color["text_price_good"]
---     local color = avgcolor
---     local lerpfactor = 0
---     if avgprice ~= 0 and minprice < avgprice and maxprice > avgprice and price ~= avgprice then
---         price = math.min(maxprice, math.max(minprice, price))
---         if price > avgprice then
---             color = maxcolor
---             lerpfactor = (price - avgprice) / (maxprice - avgprice)
---         else
---             color = mincolor
---             lerpfactor = (price - avgprice) / (minprice - avgprice)
---         end
---         --print(ware .. " min=" .. minprice .. " avg=" .. avgprice .. " max=" .. maxprice .. " (price=" .. price .. " => lerpfactor " .. lerpfactor .. ")")
---     end
---     -- Make price color darker if requested
---     darkbasecolor = darkbasecolor or Color["text_normal"]
---     local refcolor = Color["text_normal"]
---     return {
---         r = (avgcolor.r - lerpfactor * (avgcolor.r - color.r)) * darkbasecolor.r / refcolor.r,
---         g = (avgcolor.g - lerpfactor * (avgcolor.g - color.g)) * darkbasecolor.g / refcolor.g,
---         b = (avgcolor.b - lerpfactor * (avgcolor.b - color.b)) * darkbasecolor.b / refcolor.b,
---         a = (avgcolor.a - lerpfactor * (avgcolor.a - color.a)) * darkbasecolor.a / refcolor.a
---     }
--- end
-
 
 -- Trade offer filters
 -- ===================
