@@ -53,6 +53,17 @@ m.config = {
     separatorHeight = 1,
     separatorBorder = Helper.borderSize,
 
+    -- @NOTE: Align rendered text when switching between button and text widget
+    --     These properties are applied against replacement text widgets used when context menu or interaction menu are shown (as part of the 200-button limit
+    --     workaround).
+    textAlignmentCorrection = {
+        x = 2,
+        y = math.floor(1 * Helper.uiScale),
+        height = Helper.scaleY(Helper.getMenu("MapMenu").uix_getConfig().mapRowHeight) - math.floor(1 * Helper.uiScale),
+        fontsize = Helper.scaleFont(Helper.standardFont, Helper.standardFontSize),
+        scaling = false,
+    },
+
     -- Columns shown for the wares listings.
     wareColumns = {
         {
@@ -938,19 +949,8 @@ function m.renderOffers(ftable)
         local offer = m.state.filteredOffers[index]
         local row = ftable:addRow(offer)
 
-        -- @NOTE: Align rendered text when switching between button and text widget
-        --     These properties are applied against replacement text widgets used when context menu or interaction menu are shown (as part of the 200-button
-        --     limit workaround).
-        local textAlignmentCorrection = {
-            x = 2,
-            y = math.floor(1 * Helper.uiScale),
-            height = Helper.scaleY(m.menuConfig.mapRowHeight) - math.floor(1 * Helper.uiScale),
-            fontsize = Helper.scaleFont(Helper.standardFont, Helper.standardFontSize),
-            scaling = false,
-        }
-
         if m.menu.contextMenuMode or Helper.interactMenuActive then
-            row[1]:createText(offer.factionText, textAlignmentCorrection)
+            row[1]:createText(offer.factionText, m.config.textAlignmentCorrection)
         else
             row[1]:createButton({ height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"]}):setText(offer.factionText)
             row[1].handlers.onClick = function() m.setFactionFilter({{id = offer.faction, state = true}}) end
@@ -960,9 +960,9 @@ function m.renderOffers(ftable)
         row[2]:createText(offer.stationText)
 
         if m.menu.contextMenuMode or Helper.interactMenuActive then
-            row[3]:createText(offer.sectorText, textAlignmentCorrection)
+            row[3]:createText(offer.sectorText, m.config.textAlignmentCorrection)
         else
-            local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth() - textAlignmentCorrection.x)
+            local truncatedText, mouseOverText = m.truncateText(offer.sectorText, row[3]:getWidth() - m.config.textAlignmentCorrection.x)
             row[3]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
             row[3].handlers.onClick = function()
                 if C.IsControlPressed() then
@@ -977,9 +977,9 @@ function m.renderOffers(ftable)
         row[4]:createText(offer.distanceText, { halign = "right" })
 
         if m.menu.contextMenuMode or Helper.interactMenuActive then
-            row[5]:createText(offer.wareText, textAlignmentCorrection)
+            row[5]:createText(offer.wareText, m.config.textAlignmentCorrection)
         else
-            local truncatedText, mouseOverText = m.truncateText(offer.wareText, row[5]:getWidth() - textAlignmentCorrection.x)
+            local truncatedText, mouseOverText = m.truncateText(offer.wareText, row[5]:getWidth() - m.config.textAlignmentCorrection.x)
             row[5]:createButton({height = m.menuConfig.mapRowHeight, bgColor = Color["row_background"], mouseOverText = mouseOverText}):setText(truncatedText)
             row[5].handlers.onClick = function() m.setWareFilter({{id = offer.ware, state = true}}) end
             row[5].handlers.onRightClick = function() return m.menu.closeContextMenu() or m.setWareFilter({{id = offer.ware, state = false}}, true) end
