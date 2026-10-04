@@ -53,7 +53,7 @@ m.config = {
     separatorHeight = 1,
     separatorBorder = Helper.borderSize,
 
-    -- @NOTE: Align rendered text when switching between button and text widget
+    -- @NOTE: Align text when switching between button and text widget
     --     These properties are applied against replacement text widgets used when context menu or interaction menu are shown (as part of the 200-button limit
     --     workaround).
     textAlignmentCorrection = {
@@ -176,7 +176,7 @@ m.config = {
     maxDistanceFilterLimit = 10,
 
     -- Upper limit for maximum offers per page in order to avoid hitting the widget system maximum number of button elements (200 at time of this writing). Each
-    -- rendered offer adds 3 buttons to the UI, so hopefully the leftover should be sufficient to handle the rest of the shown UI.
+    -- shown offer adds 3 buttons to the UI, so hopefully the leftover should be sufficient to handle the rest of the shown UI.
     maxOffersPageSize = 40,
 
     -- Maximum number of trade offers that can be pinned.
@@ -467,7 +467,7 @@ function m.createMenu()
     m.state.availablePageSize = offersAvailablePageSize
 
     m.updateOffers(false, false, false)
-    m.renderOffers(waresTable)
+    m.addOffers(waresTable)
     m.updateControls()
 end
 
@@ -937,7 +937,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
                 table.insert(m.state.sortParameters, parameter)
             end
 
-            -- Make parameters accessible by sort property, and include priority for rendering.
+            -- Make parameters accessible by sort property.
             -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
             m.state.sortParametersBy = {}
             for priority, parameter in ipairs(m.state.sortParameters) do
@@ -966,15 +966,15 @@ function m.createWaresTable(frame, offsetX, offsetY)
 end
 
 
---- Renders a single offer in the ware listing table.
+--- Add an offer to the ware list table.
 --
 -- @param ftable {*} Table descriptor.
--- @param offer {*} Offer to render.
+-- @param offer {*} Offer to add.
 -- @param pinned bool Specify if the offer is pinned.
 --
 -- @return {*} Row descriptor.
 --
-function m.renderOffer(ftable, offer, pinned)
+function m.addOffer(ftable, offer, pinned)
     local row = ftable:addRow(offer)
 
     if m.menu.contextMenuMode or Helper.interactMenuActive then
@@ -1038,11 +1038,11 @@ function m.renderOffer(ftable, offer, pinned)
 end
 
 
---- Render offers in the ware listing table.
+--- Adds offers to the ware list table.
 --
 -- @param ftable {*} Table descriptor.
 --
-function m.renderOffers(ftable)
+function m.addOffers(ftable)
     if #m.state.filteredOffers == 0 then
         return
     end
@@ -1052,7 +1052,7 @@ function m.renderOffers(ftable)
 
     local pinnedOfferShown = false
     for _, offer in pairs(m.state.pinnedOffers) do
-        local row = m.renderOffer(ftable, offer, true)
+        local row = m.addOffer(ftable, offer, true)
         if not pinnedOfferShown then
             m.setHelp(row[1], "pinnedOffer")
             m.setHelp(row[5], "offerPinning")
@@ -1075,7 +1075,7 @@ function m.renderOffers(ftable)
     local secondFilteredOfferShown = false
     for index = from, to do
         local offer = m.state.filteredOffers[index]
-        local row = m.renderOffer(ftable, offer)
+        local row = m.addOffer(ftable, offer)
 
         -- Show help overlay on first and second (non-pinned) trade offer.
         if not firstFilteredOfferShown then
@@ -1099,7 +1099,7 @@ function m.renderOffers(ftable)
 end
 
 
---- Returns list of all active trade offers known to player, including various metadata or text rendering.
+--- Returns list of all active trade offers known to player.
 --
 -- @return [table{faction = component<faction>, factionText = string, factionName = string, station = component<station>, stationText = string,
 --     sector = component<sector>, sectorText = string, distance = number, distanceText = string, ware = component<ware>, wareText = string,
@@ -1348,7 +1348,7 @@ end
 -- @param width number Total menu width.
 -- @param title string Menu title to show in menu header.
 -- @param options [{ id = any, text = string, state = bool }] List of options to show.
--- @param groups [{ text = string, ids = { id = bool } }] List of option groups to render.
+-- @param groups [{ text = string, ids = { id = bool } }] List of option groups to show.
 -- @param callback function([{id = any, state = bool}], append = bool) Callback function invoked when options change state.
 --
 function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
