@@ -477,7 +477,7 @@ end
 -- Frame is created manually instead of relying on vanilla's menu.createInfoFrame2() in order to have more space available for the menu than what the rightbar
 -- menus usually have.
 --
--- @return table Frame descriptor.
+-- @return {*} Frame descriptor.
 --
 function m.createFrame()
     -- Avoid overlap with the menus on the left side (property menus etc).
@@ -531,7 +531,7 @@ end
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
--- @return table Table descriptor.
+-- @return {*} Table descriptor.
 --
 function m.createHeaderTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
@@ -592,7 +592,7 @@ end
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
--- @return table Table descriptor.
+-- @return {*} Table descriptor.
 --
 function m.createControlsTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
@@ -855,7 +855,7 @@ end
 -- @param offsetX number Horisontal offset for created table relative to frame borders.
 -- @param offsetY number Vertical offset for created table relative to frame borders.
 --
--- @return table Table descriptor.
+-- @return {*} Table descriptor.
 --
 function m.createWaresTable(frame, offsetX, offsetY)
     local ftable = frame:addTable(
