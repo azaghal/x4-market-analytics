@@ -1035,6 +1035,10 @@ function m.renderOffers(ftable)
         local row = ftable:addRow(false)
         row[1]:setColSpan(#m.config.wareColumns):createText(" ",
             { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    else
+        -- Blank separator for spacing purposes - helps avoid row "jumps" when going from none to one pinned trade offer.
+        local row = ftable:addRow(false)
+        row[1]:setColSpan(#m.config.wareColumns):createText(" ", { height = m.config.separatorHeight })
     end
 
     local filteredOfferShown = false
