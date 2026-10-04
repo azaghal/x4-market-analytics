@@ -559,8 +559,7 @@ function m.createHeaderTable(frame, offsetX, offsetY)
     row[5]:setText("?", { font = Helper.headerRowCenteredProperties.font, fontsize = Helper.headerRowCenteredProperties.fontsize, halign = "center" })
     row[5].handlers.onClick = m.toggleHelp
 
-    -- Separator line.
-    -- @NOTE: Making the row selectable prevents UI crashes
+    -- @NOTE: Making the separator row selectable (via "row.rowdata = true") prevents UI crashes
     --     With this particular row being set as non-interactive, the UI can be reliably crashed with the following instructions:
     --
     --         1. Open left-side property menu, select a ship.
@@ -578,9 +577,8 @@ function m.createHeaderTable(frame, offsetX, offsetY)
     --
     --     One note of interest is that if this row gets set as non-interactive, and the help button above gets removed, it also prevents the crash, so probably
     --     the help button is the thing that actually triggers it.
-    row = ftable:addRow(true)
-    row[1]:setColSpan(5):createText(" ",
-        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    row = m.addSepartor(ftable)
+    row.rowdata = true
 
     return ftable
 end
@@ -957,12 +955,25 @@ function m.createWaresTable(frame, offsetX, offsetY)
 
     m.createFilterControls(ftable)
 
-    -- Separator line.
-    row = ftable:addRow(false)
-    row[1]:setColSpan(#m.config.wareColumns):createText(" ",
-        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    m.addSepartor(ftable)
 
     return ftable
+end
+
+
+--- Adds visual line separator to a table.
+--
+-- @param ftable {*} Table descriptor.
+--
+-- @return {*} Row descriptor.
+--
+function m.addSepartor(ftable)
+    local row = ftable:addRow(false)
+
+    row[1]:setColSpan(ftable.numcolumns)
+    row[1]:createText(" ", { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+
+    return row
 end
 
 
@@ -1061,14 +1072,12 @@ function m.addOffers(ftable)
     end
 
     if pinnedOfferShown then
-        -- Separator line.
-        local row = ftable:addRow(false)
-        row[1]:setColSpan(#m.config.wareColumns):createText(" ",
-            { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+        m.addSepartor(ftable)
     else
         -- Blank separator for spacing purposes - helps avoid row "jumps" when going from none to one pinned trade offer.
-        local row = ftable:addRow(false)
-        row[1]:setColSpan(#m.config.wareColumns):createText(" ", { height = m.config.separatorHeight })
+        local row = m.addSepartor(ftable)
+        row[1].properties.cellBGColor = nil
+        row[1].properties.titleColor =  nil
     end
 
     local firstFilteredOfferShown = false
@@ -1091,10 +1100,7 @@ function m.addOffers(ftable)
     end
 
     if firstFilteredOfferShown then
-        -- Separator line.
-        local row = ftable:addRow(false)
-        row[1]:setColSpan(#m.config.wareColumns):createText(" ",
-            {cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+        m.addSepartor(ftable)
     end
 end
 
@@ -1403,10 +1409,7 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
     row[2]:createText(title, Helper.headerRowCenteredProperties)
     row[2].properties.titleColor = nil
 
-    -- Separator.
-    row = ftable:addRow(false, { fixed = true })
-    row[1]:setColSpan(2):createText(" ",
-        { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+    m.addSepartor(ftable)
 
     -- Group dropdown
     if groups then
@@ -1449,10 +1452,7 @@ function m.createMultiValuePicker(x, y, width, title, options, groups, callback)
             callback(changes)
         end
 
-        -- Separator.
-        row = ftable:addRow(false, { fixed = true })
-        row[1]:setColSpan(2):createText(" ",
-            { cellBGColor = Color["row_background"], titleColor = Color["row_title"], height = m.config.separatorHeight })
+        m.addSepartor(ftable)
     end
 
     -- Individual option toggles.
