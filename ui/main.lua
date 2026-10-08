@@ -1925,7 +1925,7 @@ function m.resetAllControls()
 
     m.state.currentPage = 1
 
-    m.updateOffers(false, false, false)
+    m.updateOffers(false, true, true)
     m.menu.refreshInfoFrame2()
 end
 
