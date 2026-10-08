@@ -371,7 +371,6 @@ function m.initData()
     local playerSector = C.GetContextByClass(C.GetPlayerID(), "sector", false)
     m.state = {
         currentPage = 1,
-        sortParameters = { { property = "factionName", ascending = true } },
         filters = {
             factions = {},
             minDistance = 0,
@@ -384,18 +383,7 @@ function m.initData()
         pinnedOffers = {},
     }
 
-    -- Make parameters accessible by sort property.
-    -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
-    m.state.sortParametersBy = {}
-    for priority, parameter in ipairs(m.state.sortParameters) do
-        -- Do not show column sorting priority when sorting by a singular player-selected column.
-        if #m.state.sortParameters > 1 then
-            parameter.priority = priority
-        else
-            parameter.priority = nil
-        end
-        m.state.sortParametersBy[parameter.property] = parameter
-    end
+    m.setSortBy("factionName")
 
     -- Keep track of widgets that might require updates after their creation.
     m.widgets = {}
@@ -610,7 +598,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
 
 
     -- Miscellanous controls
-    -- =====================
+    -- ~~~~~~~~~~~~~~~~~~~~~
     local row = ftable:addRow(true, { fixed = true })
     row[1]:setColSpan(3):createButton():setText(GetComponentData(m.state.referenceSector, "name"), { halign = "center" })
     m.setHelp(row[1], "referenceSector")
@@ -647,7 +635,7 @@ function m.createControlsTable(frame, offsetX, offsetY)
 
 
     -- Pagination controls
-    -- ===================
+    -- ~~~~~~~~~~~~~~~~~~~
     row = ftable:addRow(true, { fixed = true })
 
     row[11]:createButton():setText("\27[widget_arrow_left_01] Prev", { halign = "center" })
@@ -904,11 +892,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
             if parameter then
                 parameter.ascending = not parameter.ascending
             else
-                -- With new column selected for sorting, clear player's existing multi-sort selection.
-                parameter = { property = column.sortProperty, ascending = true }
-                m.state.sortParameters = { parameter }
-                m.state.sortParametersBy = {}
-                m.state.sortParametersBy[parameter.property] = parameter
+                m.setSortBy(column.sortProperty)
             end
 
             m.updateOffers(false, false, true)
@@ -917,39 +901,7 @@ function m.createWaresTable(frame, offsetX, offsetY)
 
         -- Sort offers by player-indicated column ordering.
         button.handlers.onRightClick = function()
-            local selected = m.state.sortParametersBy[column.sortProperty]
-
-            -- Custom multi-column sorting is not in effect.
-            if selected and #m.state.sortParameters == 1 then
-                return
-            end
-
-            if selected then
-                local newSortParameters = {}
-                for _, parameter in ipairs(m.state.sortParameters) do
-                    if selected.property ~= parameter.property then
-                        table.insert(newSortParameters, parameter)
-                    end
-                end
-                m.state.sortParameters = newSortParameters
-            else
-                local parameter = { property = column.sortProperty, ascending = true }
-                table.insert(m.state.sortParameters, parameter)
-            end
-
-            -- Make parameters accessible by sort property.
-            -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
-            m.state.sortParametersBy = {}
-            for priority, parameter in ipairs(m.state.sortParameters) do
-                -- Do not show column sorting priority when sorting by a singular player-selected column.
-                if #m.state.sortParameters > 1 then
-                    parameter.priority = priority
-                else
-                    parameter.priority = nil
-                end
-                m.state.sortParametersBy[parameter.property] = parameter
-            end
-
+            m.setSortBy(column.sortProperty, true)
             m.updateOffers(false, false, true)
             m.menu.refreshInfoFrame2()
         end
@@ -1909,19 +1861,7 @@ function m.resetAllControls()
     m.setTypeFilter()
     m.setTradeVolumeFilter()
 
-    m.state.sortParameters = { { property = "factionName", ascending = true } }
-    -- Make parameters accessible by sort property.
-    -- @NOTE: Keep this snippet in sync with other occurance or deduplicate this code.
-    m.state.sortParametersBy = {}
-    for priority, parameter in ipairs(m.state.sortParameters) do
-        -- Do not show column sorting priority when sorting by a singular player-selected column.
-        if #m.state.sortParameters > 1 then
-            parameter.priority = priority
-        else
-            parameter.priority = nil
-        end
-        m.state.sortParametersBy[parameter.property] = parameter
-    end
+    m.setSortBy("factionName")
 
     m.state.currentPage = 1
 
@@ -2244,6 +2184,34 @@ function m.toggleOfferPin(offer)
         end
     end
     m.updateOffers(false, true, true)
+end
+
+
+--- Sort by trade offer property.
+--
+-- @param property string Trade offer property to use for sorting.
+-- @param toggle bool Specify if sorting should be toggled for the specified property, or if the property should replace existing sort properties.
+--
+function m.setSortBy(property, toggle)
+    if toggle and m.state.sortParametersBy[property] and #m.state.sortParameters == 1 then
+        return
+    elseif toggle and m.state.sortParametersBy[property] then
+        for index, parameter in ipairs(m.state.sortParameters) do
+            if parameter.property == property then
+                table.remove(m.state.sortParameters, index)
+            end
+        end
+    elseif toggle then
+        table.insert(m.state.sortParameters, { property = property, ascending = true })
+    else
+        m.state.sortParameters = {{ property = property, ascending = true }}
+    end
+
+    m.state.sortParametersBy = {}
+    for priority, parameter in ipairs(m.state.sortParameters) do
+        parameter.priority = #m.state.sortParameters > 1 and priority or nil
+        m.state.sortParametersBy[parameter.property] = parameter
+    end
 end
 
 
