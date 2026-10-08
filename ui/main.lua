@@ -1289,13 +1289,15 @@ end
 -- @return number Column width that can accomodate title with sorting indicator or data.
 --
 function m.calculateRequiredColumnTextWidth(title, data)
-    local sortIndicator = "⁹\27[widget_arrow_down_01]"
+    local sortIndicator = "9\27[widget_arrow_down_01]"
 
     local titleWidth = C.GetTextWidth(title, Helper.standardFont, Helper.standardFontSize)
     local dataWidth = C.GetTextWidth(data, Helper.standardFont, Helper.standardFontSize)
     local sortIndicatorWidth = C.GetTextWidth(sortIndicator, Helper.standardFont, Helper.standardFontSize)
 
-    local maximumWidth = math.max(titleWidth + sortIndicatorWidth, dataWidth) + Helper.scaleX(Helper.standardTextOffsetx)
+    -- @NOTE: Add an extra point to width to deal with eventual rounding
+    --   Theoretically, the extra +1 should not be necessary, but with some UI scales the rest of the width is off-by-one(ish) for some reason.
+    local maximumWidth = math.max(titleWidth + sortIndicatorWidth, dataWidth) + Helper.scaleX(Helper.standardTextOffsetx) + 1
 
     return maximumWidth
 end
