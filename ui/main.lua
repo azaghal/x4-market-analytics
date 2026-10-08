@@ -128,12 +128,13 @@ m.config = {
             dataSample = "Sells",
             sortProperty = "typeText",
             fixedWidth = true,
+            referenceWidth = 7,
         },
         {
             id = "price",
             index = 7,
             title = "Price",
-            dataSample = "99999.99 Cr",
+            dataSample = "9,999.99 Cr",
             sortProperty = "price",
             fixedWidth = true,
         },
@@ -144,6 +145,7 @@ m.config = {
             dataSample = "+99.99%",
             sortProperty = "markupSort",
             fixedWidth = true,
+            referenceWidth = 7,
         },
         {
             id = "amount",
@@ -152,6 +154,7 @@ m.config = {
             dataSample = "999999",
             sortProperty = "amount",
             fixedWidth = true,
+            referenceWidth = 7,
         },
     },
 
@@ -195,9 +198,21 @@ Changing the reference sector automatically refreshes the data.
             id = "MarketAnalytics:resetReferenceSector",
             text = "Resets reference sector to player's current sector. Resetting the reference automatically refreshes data.",
         },
-        resetSettings = {
-            id = "MarketAnalytics:resetSettings",
-            text = "Resets all filters.",
+        resetAllSettings = {
+            id = "MarketAnalytics:resetAllSettings",
+            text = "Resets filter settings, sorting settings, and pinned offers.",
+        },
+        resetFilterSettings = {
+            id = "MarketAnalytics:resetFilterSettings",
+            text = "Resets filter settings.",
+        },
+        resetSortingSettings = {
+            id = "MarketAnalytics:resetSortingSettings",
+            text = "Resets sorting settings.",
+        },
+        resetPinnedOffers = {
+            id = "MarketAnalytics:resetPinnedOffers",
+            text = "Resets pinned trade offers.",
         },
         refreshOffers = {
             id = "MarketAnalytics:refreshOffers",
@@ -389,7 +404,10 @@ function m.initData()
     m.widgets = {}
 
     for _, column in ipairs(m.config.wareColumns) do
-        column.width = column.fixedWidth and m.calculateRequiredColumnTextWidth(column.title, column.dataSample) or nil
+        column.width = column.fixedWidth and not column.referenceWidth and m.calculateRequiredColumnTextWidth(column.title, column.dataSample) or nil
+    end
+    for _, column in ipairs(m.config.wareColumns) do
+        column.width = column.referenceWidth and m.config.wareColumns[column.referenceWidth].width or column.width
     end
 
     m.cache = {
@@ -596,6 +614,15 @@ function m.createControlsTable(frame, offsetX, offsetY)
         }
     )
 
+    -- Align controls with trade offer columns (looks a bit nicer).
+    local smallResetButtonWidth = (m.config.wareColumns[#m.config.wareColumns-3].width - Helper.borderSize * 2) / 3
+    ftable:setColWidth(8, smallResetButtonWidth)
+    ftable:setColWidth(9, smallResetButtonWidth)
+    ftable:setColWidth(10, smallResetButtonWidth)
+    ftable:setColWidth(11, m.config.wareColumns[#m.config.wareColumns-2].width)
+    ftable:setColWidth(12, m.config.wareColumns[#m.config.wareColumns-1].width)
+    ftable:setColWidth(13, m.config.wareColumns[#m.config.wareColumns-0].width)
+
 
     -- Miscellanous controls
     -- ~~~~~~~~~~~~~~~~~~~~~
@@ -619,9 +646,9 @@ function m.createControlsTable(frame, offsetX, offsetY)
         m.setReferenceSector(ConvertStringToLuaID(tostring(playerSector)))
     end
 
-    row[11]:createButton():setText("Reset", { halign = "center" })
-    row[11].handlers.onClick = function() m.resetAllControls() end
-    m.setHelp(row[11], "resetSettings")
+    row[8]:setColSpan(3):createButton():setText("Reset all", { halign = "center" })
+    row[8].handlers.onClick = function() m.resetAllSettings(true) end
+    m.setHelp(row[8], "resetAllSettings")
 
     row[12]:createText(" ", { y = Helper.scaleY((Helper.standardButtonHeight - Helper.standardTextHeight) / 2), halign = "center" })
     m.setHelp(row[12], "offersAge")
@@ -633,11 +660,22 @@ function m.createControlsTable(frame, offsetX, offsetY)
         m.menu.refreshInfoFrame2()
     end
 
-
-    -- Pagination controls
-    -- ~~~~~~~~~~~~~~~~~~~
     row = ftable:addRow(true, { fixed = true })
 
+    -- Individual reset buttons.
+    row[8]:createButton():setText("\27[menu_filter]", { halign = "center" })
+    row[8].handlers.onClick = function() m.resetFilterSettings(true) end
+    m.setHelp(row[8], "resetFilterSettings")
+
+    row[9]:createButton():setText("\27[widget_arrow_down_02]", { halign = "center" })
+    row[9].handlers.onClick = function() m.resetSortingSettings(true) end
+    m.setHelp(row[9], "resetSortingSettings")
+
+    row[10]:createButton():setText("\27[menu_locked]", { halign = "center" })
+    row[10].handlers.onClick = function() m.resetPinnedOffers(true) end
+    m.setHelp(row[10], "resetPinnedOffers")
+
+    -- Pagination controls
     row[11]:createButton():setText("\27[widget_arrow_left_01] Prev", { halign = "center" })
     row[11].handlers.onClick = function()
         m.state.currentPage = m.state.currentPage > 1 and m.state.currentPage - 1 or m.state.pageCount
@@ -1092,6 +1130,7 @@ function m.getTradeOffers()
                     ""
                 local typeText = string.format("%s%s", typeTextColor, trade.isbuyoffer and "Buys" or trade.isselloffer and "Sells" or "None")
                 local priceTextColor = Helper.convertColorToText(Helper.interpolatePriceColor(trade.ware, trade.price, trade.isselloffer))
+                -- ConvertMoneyString arguments: price, includeFraction, includeComma, ?, ?
                 local priceText = string.format("%s%s%s", priceTextColor, ConvertMoneyString(trade.price, true, true, 0, true), currencySuffix)
                 table.insert(
                     offers,
@@ -1112,7 +1151,6 @@ function m.getTradeOffers()
                         type = trade.isbuyoffer and 1 or trade.isselloffer and 2 or nil,
                         typeText = typeText,
                         price = trade.price,
-                        -- Arguments: price, includeFraction, includeComma, ?, ?
                         priceText = priceText,
                         markup = markup,
                         markupText = string.format("%.2f%%", markup * 100),
@@ -1853,9 +1891,11 @@ function m.setTradeVolumeFilter(volume)
 end
 
 
---- Resets all filters and sorting.
+--- Resets filter settings.
 --
-function m.resetAllControls()
+-- @param update bool Update the trade offers and refresh the menu. Default is false.
+--
+function m.resetFilterSettings(update)
     m.setFactionFilter({})
     m.setSectorFilter({})
     m.setMaxDistanceFilter()
@@ -1863,12 +1903,60 @@ function m.resetAllControls()
     m.setTypeFilter()
     m.setTradeVolumeFilter()
 
+    if update then
+        m.updateOffers(false, true, false)
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Resets sorting settings.
+--
+-- @param update bool Update the trade offers and refresh the menu. Default is false.
+--
+function m.resetSortingSettings(update)
     m.setSortBy("factionName")
+
+    if update then
+        m.updateOffers(false, false, true)
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Resets pinned trade offers.
+--
+-- @param update bool Update the trade offers and refresh the menu. Default is false.
+--
+function m.resetPinnedOffers(update)
+    for _, offer in ipairs(m.state.pinnedOffers) do
+        table.insert(m.state.offers, offer)
+    end
+
+    m.state.pinnedOffers = {}
+
+    if update then
+        m.updateOffers(false, true, false)
+        m.menu.refreshInfoFrame2()
+    end
+end
+
+
+--- Resets all settings (filters, sorting, pinned offers).
+--
+-- @param update bool Update the trade offers and refresh the menu. Default is false.
+--
+function m.resetAllSettings(update)
+    m.resetFilterSettings(false)
+    m.resetSortingSettings(false)
+    m.resetPinnedOffers(false)
 
     m.state.currentPage = 1
 
-    m.updateOffers(false, true, true)
-    m.menu.refreshInfoFrame2()
+    if update then
+        m.updateOffers(false, true, true)
+        m.menu.refreshInfoFrame2()
+    end
 end
 
 
